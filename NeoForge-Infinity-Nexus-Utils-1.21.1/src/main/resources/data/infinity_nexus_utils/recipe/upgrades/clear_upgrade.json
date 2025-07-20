@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "minecraft:ender_pearl"
+    },
+    "B": {
+      "tag": "c:glass_blocks"
+    },
+    "C": {
+      "item": "minecraft:lava_bucket"
+    }
+  },
+  "pattern": [
+    "BAB",
+    "ACA",
+    "BAB"
+  ],
+  "result": {
+    "id": "infinity_nexus_utils:terraform_clear_upgrade",
+    "count": 1
+  },
+  "show_notification": true
+}

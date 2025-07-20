@@ -1,0 +1,35 @@
+{
+  "criteria": {
+    "utils": {
+      "conditions": {
+        "items": [
+          {
+            "items": "infinity_nexus_utils:terraform"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "announce_to_chat": true,
+    "background": "minecraft:textures/block/stone.png",
+    "description": {
+      "translate": "advancement.infinity_nexus_utils.start"
+    },
+    "icon": {
+      "count": 1,
+      "id": "infinity_nexus_utils:utils"
+    },
+    "show_toast": false,
+    "title": {
+      "translate": "itemGroup.infinity_nexus_utils"
+    }
+  },
+  "requirements": [
+    [
+      "utils"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

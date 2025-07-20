@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "infinity_nexus_utils:block/terraform/bottom",
+    "east": "infinity_nexus_utils:block/terraform/side",
+    "north": "infinity_nexus_utils:block/terraform/side",
+    "particle": "infinity_nexus_utils:block/terraform/side",
+    "south": "infinity_nexus_utils:block/terraform/front",
+    "up": "infinity_nexus_utils:block/terraform/top",
+    "west": "infinity_nexus_utils:block/terraform/side"
+  }
+}

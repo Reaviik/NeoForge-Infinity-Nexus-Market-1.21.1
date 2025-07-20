@@ -1,0 +1,31 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "minecraft:black_concrete"
+    },
+    "B": {
+      "tag": "c:ingots/iron"
+    },
+    "C": {
+      "item": "minecraft:ender_eye"
+    },
+    "D": {
+      "item": "minecraft:copper_block"
+    },
+    "E": {
+      "item": "minecraft:observer"
+    }
+  },
+  "pattern": [
+    "BAB",
+    "ACE",
+    "DDD"
+  ],
+  "result": {
+    "id": "infinity_nexus_utils:terraform",
+    "count": 1
+  },
+  "show_notification": true
+}

@@ -1,0 +1,33 @@
+{
+  "parent": "infinity_nexus_utils:utils/root",
+  "criteria": {
+    "has_placer": {
+      "conditions": {
+        "items": [
+          {
+            "items": "infinity_nexus_utils:terraform_placer_upgrade"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+  "description": {
+    "translate": "advancement.infinity_nexus_utils.placer_description"
+  },
+  "icon": {
+    "count": 1,
+    "id": "infinity_nexus_utils:planter_upgrade"
+  },
+  "title": {
+    "translate": "advancement.infinity_nexus_utils.placer"
+  }
+},
+  "requirements": [
+    [
+      "has_placer"
+    ]
+  ],
+  "sends_telemetry_event": true
+}
