@@ -1,0 +1,506 @@
+package com.Infinity.Nexus.Market.utils;
+
+import com.Infinity.Nexus.Market.InfinityNexusMarket;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.mojang.serialization.JsonOps;
+import net.minecraft.resources.RegistryOps;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.ItemStack;
+
+import java.io.File;
+import java.sql.*;
+import java.util.*;
+
+public class SQLiteManagerold {
+    private static final String DB_URL = "jdbc:sqlite:" + new File("config/infinity_nexus_market/market.db").getAbsolutePath();
+    private static boolean isInitialized = false;
+
+    public static void initialize() {
+        if (isInitialized) {
+            return;
+        }
+
+        InfinityNexusMarket.LOGGER.info("Inicializando SQLite database...");
+        
+        try {
+            // Garante que o diretório existe
+            new File("config/infinity_nexus_market").mkdirs();
+
+            // Carrega o driver SQLite (método direto como no exemplo)
+            try {
+                Class.forName("org.sqlite.JDBC").getDeclaredConstructor().newInstance();
+                InfinityNexusMarket.LOGGER.info("SQLite driver carregado com sucesso!");
+            } catch (Exception e) {
+                InfinityNexusMarket.LOGGER.error("Falha ao carregar o driver SQLite. Verifique se a dependência sqlite-jdbc está no classpath.", e);
+                return;
+            }
+
+            // Testa a conexão e cria as tabelas
+            try (Connection conn = DriverManager.getConnection(DB_URL)) {
+                InfinityNexusMarket.LOGGER.info("Conectado ao banco SQLite: {}", DB_URL);
+                
+                // Cria todas as tabelas necessárias
+                createAllTables(conn);
+                
+                isInitialized = true;
+                InfinityNexusMarket.LOGGER.info("Todas as tabelas criadas/verificadas com sucesso!");
+            } catch (SQLException e) {
+                InfinityNexusMarket.LOGGER.error("Falha ao conectar ou criar tabelas no banco SQLite", e);
+            }
+            
+        } catch (Exception e) {
+            InfinityNexusMarket.LOGGER.error("Erro durante inicialização do SQLite", e);
+        }
+    }
+
+    private static void createAllTables(Connection conn) throws SQLException {
+        // 1. Tabela de saldos dos jogadores (agora com estatísticas)
+        String createPlayerBalances = "CREATE TABLE IF NOT EXISTS player_balances (" +
+                "uuid TEXT PRIMARY KEY, " +
+                "player_name TEXT NOT NULL, " +
+                "balance REAL DEFAULT 0.0, " +
+                "total_gasto REAL DEFAULT 0.0, " +
+                "total_ganho REAL DEFAULT 0.0, " +
+                "total_vendas INTEGER DEFAULT 0, " +
+                "total_compras INTEGER DEFAULT 0, " +
+                "last_updated DATETIME DEFAULT CURRENT_TIMESTAMP" +
+                ");";
+        
+        // 2. Tabela unificada de market (server + player)
+        String createMarketItems = "CREATE TABLE IF NOT EXISTS market_items (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "entry_id TEXT UNIQUE NOT NULL, " +
+                "type TEXT NOT NULL CHECK (type IN ('server', 'player')), " +
+                "seller_uuid TEXT, " + // NULL para server, UUID do jogador para player
+                "seller_name TEXT, " + // NULL para server, nome do jogador para player
+                "item_stack_nbt TEXT NOT NULL, " +
+                "quantity INTEGER NOT NULL, " + // 0 para server (estoque infinito), quantidade real para player
+                "base_price REAL NOT NULL, " +
+                "current_price REAL NOT NULL, " +
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " +
+                "last_updated DATETIME DEFAULT CURRENT_TIMESTAMP, " +
+                "is_active INTEGER DEFAULT 1" +
+                ");";
+        
+        // 3. Tabela de histórico de vendas (agora com seller_uuid e seller_name)
+        String createSalesHistory = "CREATE TABLE IF NOT EXISTS sales_history (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "item_stack_nbt TEXT NOT NULL, " +
+                "quantity INTEGER NOT NULL, " +
+                "price REAL NOT NULL, " +
+                "seller_uuid TEXT, " +
+                "seller_name TEXT, " +
+                "transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP" +
+                ");";
+
+        // Executa todas as criações
+        conn.createStatement().execute(createPlayerBalances);
+        conn.createStatement().execute(createMarketItems);
+        conn.createStatement().execute(createSalesHistory);
+
+        // Migração: Adiciona seller_uuid e seller_name se não existirem
+        try {
+            conn.createStatement().executeQuery("SELECT seller_uuid FROM sales_history LIMIT 1");
+        } catch (SQLException e) {
+            conn.createStatement().execute("ALTER TABLE sales_history ADD COLUMN seller_uuid TEXT;");
+        }
+        try {
+            conn.createStatement().executeQuery("SELECT seller_name FROM sales_history LIMIT 1");
+        } catch (SQLException e) {
+            conn.createStatement().execute("ALTER TABLE sales_history ADD COLUMN seller_name TEXT;");
+        }
+        // Migração: Adiciona colunas de estatísticas se não existirem
+        try { conn.createStatement().executeQuery("SELECT total_gasto FROM player_balances LIMIT 1"); } catch (SQLException e) { conn.createStatement().execute("ALTER TABLE player_balances ADD COLUMN total_gasto REAL DEFAULT 0.0;"); }
+        try { conn.createStatement().executeQuery("SELECT total_ganho FROM player_balances LIMIT 1"); } catch (SQLException e) { conn.createStatement().execute("ALTER TABLE player_balances ADD COLUMN total_ganho REAL DEFAULT 0.0;"); }
+        try { conn.createStatement().executeQuery("SELECT total_vendas FROM player_balances LIMIT 1"); } catch (SQLException e) { conn.createStatement().execute("ALTER TABLE player_balances ADD COLUMN total_vendas INTEGER DEFAULT 0;"); }
+        try { conn.createStatement().executeQuery("SELECT total_compras FROM player_balances LIMIT 1"); } catch (SQLException e) { conn.createStatement().execute("ALTER TABLE player_balances ADD COLUMN total_compras INTEGER DEFAULT 0;"); }
+    }
+
+    // ========== MÉTODOS PARA PLAYER BALANCES ==========
+    
+    public static double getPlayerBalance(String uuid) {
+        if (!isInitialized) initialize();
+        
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String select = "SELECT balance FROM player_balances WHERE uuid = ?;";
+            PreparedStatement pstmt = conn.prepareStatement(select);
+            pstmt.setString(1, uuid);
+            ResultSet rs = pstmt.executeQuery();
+            
+            if (rs.next()) {
+                return rs.getDouble("balance");
+            }
+            return 0.0;
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao buscar saldo do jogador", e);
+            return 0.0;
+        }
+    }
+
+    public static void setPlayerBalance(String uuid, String playerName, double balance) {
+        if (!isInitialized) initialize();
+        
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String upsert = "INSERT OR REPLACE INTO player_balances (uuid, player_name, balance, last_updated) VALUES (?, ?, ?, CURRENT_TIMESTAMP);";
+            PreparedStatement pstmt = conn.prepareStatement(upsert);
+            playerName = playerName == null ? "" : playerName;
+            pstmt.setString(1, uuid);
+            pstmt.setString(2, playerName);
+            pstmt.setDouble(3, balance);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao definir saldo do jogador", e);
+        }
+    }
+
+    public static Map<UUID, Double> getAllPlayerBalances() {
+        if (!isInitialized) initialize();
+        
+        Map<UUID, Double> balances = new HashMap<>();
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String select = "SELECT uuid, balance FROM player_balances;";
+            ResultSet rs = conn.createStatement().executeQuery(select);
+            
+            while (rs.next()) {
+                try {
+                    UUID playerUUID = UUID.fromString(rs.getString("uuid"));
+                    double balance = rs.getDouble("balance");
+                    balances.put(playerUUID, balance);
+                } catch (IllegalArgumentException e) {
+                    // Log do erro e continua com o próximo item
+                    InfinityNexusMarket.LOGGER.warn("UUID inválido encontrado na tabela player_balances: " + rs.getString("uuid"));
+                    continue;
+                }
+            }
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao buscar todos os saldos dos jogadores", e);
+        }
+        return balances;
+    }
+
+    public static void cleanCorruptedData() {
+        if (!isInitialized) initialize();
+        
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            // Remove registros com entry_id que não são UUIDs válidos
+            String deleteCorrupted = "DELETE FROM market_items WHERE entry_id NOT LIKE '%-%-%-%-%' OR entry_id LIKE 'player_%' OR entry_id LIKE 'server_%';";
+            int deletedRows = conn.createStatement().executeUpdate(deleteCorrupted);
+            
+            if (deletedRows > 0) {
+                InfinityNexusMarket.LOGGER.info("Removidos " + deletedRows + " registros corrompidos da tabela market_items");
+            }
+            
+            // Verifica se a coluna seller_name existe, se não, adiciona
+            try {
+                conn.createStatement().executeQuery("SELECT seller_name FROM market_items LIMIT 1");
+                InfinityNexusMarket.LOGGER.info("Coluna seller_name já existe na tabela market_items");
+            } catch (SQLException e) {
+                InfinityNexusMarket.LOGGER.info("Adicionando coluna seller_name à tabela market_items...");
+                conn.createStatement().execute("ALTER TABLE market_items ADD COLUMN seller_name TEXT;");
+                InfinityNexusMarket.LOGGER.info("Coluna seller_name adicionada com sucesso");
+            }
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao limpar dados corrompidos", e);
+        }
+    }
+
+    /**
+     * Remove vendas expiradas (configurável em dias)
+     * @param daysToExpire Número de dias para considerar uma venda como expirada
+     * @return Número de vendas removidas
+     */
+    public static int cleanExpiredSales(int daysToExpire) {
+        if (!isInitialized) initialize();
+        
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String deleteExpired = "DELETE FROM market_items WHERE type = 'player' AND is_active = 1 AND created_at < datetime('now', '-" + daysToExpire + " days');";
+            int deletedRows = conn.createStatement().executeUpdate(deleteExpired);
+            
+            if (deletedRows > 0) {
+                InfinityNexusMarket.LOGGER.info("Removidas " + deletedRows + " vendas expiradas (mais de " + daysToExpire + " dias)");
+            }
+            
+            return deletedRows;
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao limpar vendas expiradas", e);
+            return 0;
+        }
+    }
+
+    /**
+     * Compacta a database SQLite para otimizar espaço
+     */
+    public static void compactDatabase() {
+        if (!isInitialized) initialize();
+        
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            conn.createStatement().execute("VACUUM;");
+            InfinityNexusMarket.LOGGER.info("Database SQLite compactada com sucesso");
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao compactar database", e);
+        }
+    }
+
+    // ========== MÉTODOS PARA PLAYER SALES ==========
+    
+    public static boolean addPlayerSale(String sellerUUID, String sellerName, 
+                                      ItemStack item, int quantity, double price, ServerLevel serverLevel) {
+        if (!isInitialized) initialize();
+        
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String insert = "INSERT INTO market_items (entry_id, type, seller_uuid, seller_name, item_stack_nbt, quantity, base_price, current_price, created_at) " +
+                           "VALUES (?, 'player', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);";
+            
+            PreparedStatement pstmt = conn.prepareStatement(insert);
+            pstmt.setString(1, UUID.randomUUID().toString()); // Gerar um UUID único
+            pstmt.setString(2, sellerUUID);
+            pstmt.setString(3, sellerName);
+            pstmt.setString(4, serializeItemStack(item, serverLevel));
+            pstmt.setInt(5, quantity);
+            pstmt.setDouble(6, price); // Para player, base_price é o preço atual
+            pstmt.setDouble(7, price); // Para player, current_price é o preço atual
+            
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao adicionar venda do jogador", e);
+            return false;
+        }
+    }
+
+    public static List<PlayerSaleEntry> getAllPlayerSales() {
+        if (!isInitialized) initialize();
+        
+        List<PlayerSaleEntry> sales = new ArrayList<>();
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String select = "SELECT * FROM market_items WHERE type = 'player' AND is_active = 1 ORDER BY created_at DESC;";
+            ResultSet rs = conn.createStatement().executeQuery(select);
+            
+            while (rs.next()) {
+                PlayerSaleEntry entry = new PlayerSaleEntry();
+                entry.id = rs.getInt("id");
+                entry.transactionId = rs.getString("entry_id"); // Usar o entry_id como transactionId
+                entry.sellerUUID = rs.getString("seller_uuid");
+                entry.sellerName = rs.getString("seller_name");
+                entry.itemId = rs.getString("item_stack_nbt"); // Agora contém o NBT completo
+                entry.itemName = ""; // Será extraído do ItemStack
+                entry.itemNbt = rs.getString("item_stack_nbt");
+                entry.quantity = rs.getInt("quantity");
+                entry.price = rs.getDouble("current_price"); // Preço atual do player
+                entry.createdAt = rs.getString("created_at");
+                sales.add(entry);
+            }
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao buscar vendas dos jogadores", e);
+        }
+        return sales;
+    }
+
+    public static boolean removePlayerSale(String transactionId) {
+        if (!isInitialized) initialize();
+        
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String update = "UPDATE market_items SET is_active = 0 WHERE entry_id = ?;";
+            PreparedStatement pstmt = conn.prepareStatement(update);
+            pstmt.setString(1, transactionId);
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao remover venda do jogador", e);
+            return false;
+        }
+    }
+
+    // ========== MÉTODOS PARA SERVER ITEMS ==========
+    
+    public static boolean addOrUpdateServerItem(String entryId, ItemStack item, double basePrice, double currentPrice, ServerLevel serverLevel) {
+        if (!isInitialized) initialize();
+        
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String upsert = "INSERT OR REPLACE INTO market_items (entry_id, type, item_stack_nbt, quantity, base_price, current_price, last_updated) " +
+                           "VALUES (?, 'server', ?, ?, ?, ?, CURRENT_TIMESTAMP);";
+            
+            PreparedStatement pstmt = conn.prepareStatement(upsert);
+            pstmt.setString(1, entryId);
+            pstmt.setString(2, serializeItemStack(item, serverLevel));
+            pstmt.setInt(3, 0); // Estoque infinito para servidor
+            pstmt.setDouble(4, basePrice);
+            pstmt.setDouble(5, currentPrice);
+            
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao adicionar/atualizar item do servidor", e);
+            return false;
+        }
+    }
+
+    public static List<ServerItemEntry> getAllServerItems() {
+        if (!isInitialized) initialize();
+        
+        List<ServerItemEntry> items = new ArrayList<>();
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String select = "SELECT * FROM market_items WHERE type = 'server' ORDER BY last_updated DESC;";
+            ResultSet rs = conn.createStatement().executeQuery(select);
+            
+            while (rs.next()) {
+                ServerItemEntry entry = new ServerItemEntry();
+                entry.id = rs.getInt("id");
+                entry.entryId = rs.getString("entry_id");
+                entry.itemId = rs.getString("item_stack_nbt"); // Agora contém o NBT completo
+                entry.itemName = ""; // Será extraído do ItemStack
+                entry.itemNbt = rs.getString("item_stack_nbt");
+                entry.basePrice = rs.getDouble("base_price");
+                entry.currentPrice = rs.getDouble("current_price");
+                entry.lastUpdated = rs.getString("last_updated");
+                items.add(entry);
+            }
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao buscar itens do servidor", e);
+        }
+        return items;
+    }
+
+    // ========== MÉTODOS PARA SALES HISTORY ==========
+    
+    public static boolean addSalesHistory(String itemId, String itemName, int quantity, double price, String sellerUUID, String sellerName, ServerLevel serverLevel) {
+        if (!isInitialized) initialize();
+        
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String insert = "INSERT INTO sales_history (item_stack_nbt, quantity, price, seller_uuid, seller_name) VALUES (?, ?, ?, ?, ?);";
+            PreparedStatement pstmt = conn.prepareStatement(insert);
+            pstmt.setString(1, itemId);
+            pstmt.setInt(2, quantity);
+            pstmt.setDouble(3, price);
+            pstmt.setString(4, sellerUUID);
+            pstmt.setString(5, sellerName);
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao adicionar histórico de vendas", e);
+            return false;
+        }
+    }
+
+    public static Map<String, Integer> getSalesHistoryAndReset() {
+        if (!isInitialized) initialize();
+        
+        Map<String, Integer> sales = new HashMap<>();
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            // Busca todas as vendas
+            String select = "SELECT item_stack_nbt, SUM(quantity) as total_quantity FROM sales_history GROUP BY item_stack_nbt;";
+            ResultSet rs = conn.createStatement().executeQuery(select);
+            
+            while (rs.next()) {
+                String itemId = rs.getString("item_stack_nbt");
+                int quantity = rs.getInt("total_quantity");
+                sales.put(itemId, quantity);
+            }
+            
+            // Limpa o histórico
+            conn.createStatement().execute("DELETE FROM sales_history;");
+            
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao buscar histórico de vendas", e);
+        }
+        return sales;
+    }
+
+    /**
+     * Busca o nome do vendedor na tabela market_items dado o entry_id
+     */
+    public static String getSellerNameByEntryId(String entryId) {
+        if (!isInitialized) initialize();
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String select = "SELECT seller_name FROM market_items WHERE entry_id = ? LIMIT 1;";
+            PreparedStatement pstmt = conn.prepareStatement(select);
+            pstmt.setString(1, entryId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("seller_name");
+            }
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao buscar seller_name por entry_id", e);
+        }
+        return null;
+    }
+
+    /**
+     * Incrementa estatísticas do player (gasto, ganho, vendas, compras)
+     */
+    public static void incrementPlayerStats(String uuid, double gasto, double ganho, int vendas, int compras) {
+        if (!isInitialized) initialize();
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String update = "UPDATE player_balances SET total_gasto = total_gasto + ?, total_ganho = total_ganho + ?, total_vendas = total_vendas + ?, total_compras = total_compras + ?, last_updated = CURRENT_TIMESTAMP WHERE uuid = ?;";
+            PreparedStatement pstmt = conn.prepareStatement(update);
+            pstmt.setDouble(1, gasto);
+            pstmt.setDouble(2, ganho);
+            pstmt.setInt(3, vendas);
+            pstmt.setInt(4, compras);
+            pstmt.setString(5, uuid);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao incrementar estatísticas do player", e);
+        }
+    }
+
+    // ========== MÉTODOS DE UTILIDADE ==========
+
+    private static String serializeItemStack(ItemStack item, ServerLevel level) {
+        if (item == null || item.isEmpty()) return "";
+
+        JsonElement json = ItemStack.CODEC.encodeStart(
+                RegistryOps.create(JsonOps.INSTANCE, level.registryAccess()),
+                item
+        ).getOrThrow();
+
+        return json.toString();
+    }
+
+
+
+    public static ItemStack deserializeItemStack(String jsonString, ServerLevel level) {
+        try {
+            if (jsonString == null || jsonString.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+
+            ItemStack stack = ItemStack.CODEC.parse(
+                    RegistryOps.create(JsonOps.INSTANCE, level.registryAccess()),
+                    JsonParser.parseString(jsonString)
+            ).getOrThrow();
+
+            return stack;
+        } catch (Exception e) {
+            InfinityNexusMarket.LOGGER.error("Erro ao deserializar ItemStack: {}", jsonString, e);
+            return ItemStack.EMPTY;
+        }
+    }
+
+    // ========== CLASSES DE DADOS ==========
+    
+    public static class PlayerSaleEntry {
+        public int id;
+        public String transactionId;
+        public String sellerUUID;
+        public String sellerName;
+        public String itemId;
+        public String itemName;
+        public String itemNbt;
+        public int quantity;
+        public double price;
+        public String createdAt;
+    }
+
+    public static class ServerItemEntry {
+        public int id;
+        public String entryId;
+        public String itemId;
+        public String itemName;
+        public String itemNbt;
+        public double basePrice;
+        public double currentPrice;
+        public String lastUpdated;
+    }
+}

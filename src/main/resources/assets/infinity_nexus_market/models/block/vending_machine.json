@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "infinity_nexus_market:block/vending/bottom",
+    "east": "infinity_nexus_market:block/vending/side",
+    "north": "infinity_nexus_market:block/vending/side",
+    "particle": "infinity_nexus_market:block/vending/side",
+    "south": "infinity_nexus_market:block/vending/front",
+    "up": "infinity_nexus_market:block/vending/top",
+    "west": "infinity_nexus_market:block/vending/side"
+  }
+}

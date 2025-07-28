@@ -1,0 +1,40 @@
+package com.Infinity.Nexus.Market.block;
+
+import com.Infinity.Nexus.Market.InfinityNexusMarket;
+import com.Infinity.Nexus.Market.block.custom.BuyingMachine;
+import com.Infinity.Nexus.Market.block.custom.MarketMachine;
+import com.Infinity.Nexus.Market.block.custom.VendingMachine;
+import com.Infinity.Nexus.Market.item.ModItemsMarket;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.MapColor;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredBlock;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
+import java.util.function.Supplier;
+
+public class ModBlocksMarket {
+    public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(InfinityNexusMarket.MOD_ID);
+    
+    public static final DeferredBlock<Block> VENDING_MACHINE = registerBlock("vending_machine", () -> new VendingMachine(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK).requiresCorrectToolForDrops().strength(3.0f, 6.0f).lightLevel((state) -> state.getValue(VendingMachine.LIT) == 1 ? 2 : 0).noOcclusion().mapColor(MapColor.METAL)));
+    public static final DeferredBlock<Block> BUYING_MACHINE = registerBlock("buying_machine", () -> new BuyingMachine(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK).requiresCorrectToolForDrops().strength(3.0f, 6.0f).lightLevel((state) -> state.getValue(VendingMachine.LIT) == 1 ? 2 : 0).noOcclusion().mapColor(MapColor.METAL)));
+    public static final DeferredBlock<Block> MARKET_MACHINE = registerBlock("market_machine", () -> new MarketMachine(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK).requiresCorrectToolForDrops().strength(3.0f, 6.0f).lightLevel((state) -> state.getValue(VendingMachine.LIT) == 1 ? 2 : 0).noOcclusion().mapColor(MapColor.METAL)));
+
+    private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
+        DeferredBlock<T> toReturn = BLOCKS.register(name, block);
+        registerBlockItem(name, toReturn);
+        return toReturn;
+    }
+
+    private static <T extends Block> void registerBlockItem(String name, DeferredBlock<T> block) {
+        ModItemsMarket.ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties()));
+    }
+
+    public static void register(IEventBus eventBus) {
+        BLOCKS.register(eventBus);
+    }
+}

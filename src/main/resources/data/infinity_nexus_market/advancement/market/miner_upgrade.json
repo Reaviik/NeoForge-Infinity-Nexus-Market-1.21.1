@@ -1,0 +1,33 @@
+{
+  "parent": "infinity_nexus_market:market/root",
+  "criteria": {
+    "has_miner": {
+      "conditions": {
+        "items": [
+          {
+            "items": "infinity_nexus_market:vending_machine_miner_upgrade"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+  "description": {
+    "translate": "advancement.infinity_nexus_market.miner_description"
+  },
+  "icon": {
+    "count": 1,
+    "id": "infinity_nexus_market:planter_upgrade"
+  },
+  "title": {
+    "translate": "advancement.infinity_nexus_market.miner"
+  }
+},
+  "requirements": [
+    [
+      "has_miner"
+    ]
+  ],
+  "sends_telemetry_event": true
+}
