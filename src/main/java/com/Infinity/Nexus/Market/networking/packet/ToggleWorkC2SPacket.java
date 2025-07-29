@@ -39,9 +39,9 @@ public record ToggleWorkC2SPacket(BlockPos pos, boolean work) implements CustomP
             ServerLevel level = player.serverLevel();
             BlockEntity blockEntity = level.getBlockEntity(packet.pos());
             if (blockEntity instanceof VendingBlockEntity vending) {
-                vending.toggleWork(packet.work());
+                vending.setAutoEnabled(packet.work());
             } else if (blockEntity instanceof BuyingBlockEntity buying) {
-                buying.toggleWork(packet.work());
+                buying.setAutoEnabled(packet.work());
             }
         });
     }

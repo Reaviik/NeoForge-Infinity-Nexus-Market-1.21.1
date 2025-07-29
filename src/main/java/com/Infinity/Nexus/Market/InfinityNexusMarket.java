@@ -5,7 +5,7 @@ import com.Infinity.Nexus.Market.block.entity.ModBlockEntities;
 import com.Infinity.Nexus.Market.component.MarketDataComponents;
 import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.item.ModItemsMarket;
-import com.Infinity.Nexus.Market.market.SQLiteManager;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.networking.ModMessages;
 import com.Infinity.Nexus.Market.screen.ModMenuTypes;
 import com.Infinity.Nexus.Market.screen.buying.BuyingScreen;
@@ -19,17 +19,19 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import org.slf4j.Logger;
+
+import java.io.File;
 
 @Mod(InfinityNexusMarket.MOD_ID)
 public class InfinityNexusMarket {
-    public static final String PREFIX = "§f[§bINC§f]: ";
     long time = System.currentTimeMillis();
     public static final String MOD_ID = "infinity_nexus_market";
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public InfinityNexusMarket(IEventBus modEventBus, ModContainer modContainer){
-        //NeoForge.EVENT_BUS.register(this);
 
         ModTab.register(modEventBus);
 
@@ -56,18 +58,18 @@ public class InfinityNexusMarket {
 
 
     private void setup(final FMLCommonSetupEvent event) {
+        // Inicializa o SQLite
+        event.enqueueWork(() -> {
+            LOGGER.info("§aInicializando sistema SQLite...");
+            DatabaseManager.initialize();
+        });
+
         LOGGER.info("   §4_____§5_   __§9__________§3_   ______§b_______  __");
         LOGGER.info("  §4/_  _§5/ | / §9/ ____/  _§3/ | / /  _§b/_  __| \\/ /");
         LOGGER.info("   §4/ /§5/  |/ §9/ /_   / /§3/  |/ // /  §b/ /   \\  / ");
         LOGGER.info(" §4_/ /§5/ /|  §9/ __/ _/ /§3/ /|  // /  §b/ /    / /  ");
         LOGGER.info("§4/___§5/_/ |_§9/_/   /___§3/_/ |_/___/ §b/_/    /_/   ");
         LOGGER.info("§b             Infinty Nexus Utils");
-        LOGGER.info("§cTempo de carregamento: {} ms", System.currentTimeMillis() - time);
-        
-        // Inicializa o SQLite
-        event.enqueueWork(() -> {
-            LOGGER.info("§aInicializando sistema SQLite...");
-            SQLiteManager.initialize();
-        });
+        LOGGER.info("§f[§bMarket§f]: §cTempo de carregamento: {} ms", System.currentTimeMillis() - time);
     }
 }

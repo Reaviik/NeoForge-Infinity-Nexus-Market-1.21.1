@@ -1,7 +1,7 @@
 package com.Infinity.Nexus.Market.screen.market;
 
 import com.Infinity.Nexus.Market.block.entity.MarketBlockEntity;
-import com.Infinity.Nexus.Market.market.SQLiteManager;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.screen.BaseAbstractContainerMenu;
 import com.Infinity.Nexus.Market.screen.ModMenuTypes;
 import net.minecraft.network.FriendlyByteBuf;
@@ -37,12 +37,12 @@ public class MarketMenu extends BaseAbstractContainerMenu {
     /**
      * Obtém as vendas do mercado diretamente do SQLiteManager
      */
-    public List<SQLiteManager.MarketItemEntry> getMarketSales() {
+    public List<DatabaseManager.MarketItemEntry> getMarketSales() {
         if (level.isClientSide() || !(level instanceof ServerLevel)) {
             return Collections.emptyList();
         }
 
-        return SQLiteManager.getAllMarketItems();
+        return DatabaseManager.getAllMarketItems();
     }
 
     public Player getPlayer() {

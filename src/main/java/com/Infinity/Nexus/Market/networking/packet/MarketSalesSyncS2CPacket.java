@@ -1,7 +1,7 @@
 package com.Infinity.Nexus.Market.networking.packet;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
-import com.Infinity.Nexus.Market.market.SQLiteManager;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.screen.market.MarketScreen;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -87,13 +87,13 @@ public record MarketSalesSyncS2CPacket(List<SaleEntryDTO> sales) implements Cust
     }
 
     // Novo método para converter MarketItemEntry para SaleEntryDTO
-    public static List<SaleEntryDTO> fromMarketItems(List<SQLiteManager.MarketItemEntry> marketItems, ServerLevel level) {
+    public static List<SaleEntryDTO> fromMarketItems(List<DatabaseManager.MarketItemEntry> marketItems, ServerLevel level) {
         System.out.println("MarketSalesSyncS2CPacket: Processando " + marketItems.size() + " itens do mercado");
 
         List<SaleEntryDTO> result = new ArrayList<>();
-        for (SQLiteManager.MarketItemEntry entry : marketItems) {
+        for (DatabaseManager.MarketItemEntry entry : marketItems) {
             // Desserializa o ItemStack do NBT
-            ItemStack item = SQLiteManager.deserializeItemStack(entry.itemNbt, level);
+            ItemStack item = DatabaseManager.deserializeItemStack(entry.itemNbt, level);
 
             System.out.println("MarketSalesSyncS2CPacket: Verificando item - tipo: " + entry.type +
                     ", item: " + (item != null ? item.getItem().getDescriptionId() : "null"));

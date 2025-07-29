@@ -392,7 +392,7 @@ public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
             return;
         }
 
-        boolean isOwner = menu.getPlayer().getUUID().toString().equals(selectedEntry.seller);
+        boolean isOwner = menu.getPlayer().getUUID().toString().equals(selectedEntry.seller) || menu.getPlayer().isCreative();
         boolean isOp = menu.getPlayer().hasPermissions(2);
 
         if (!isOwner && !isOp) {

@@ -2,7 +2,7 @@ package com.Infinity.Nexus.Market.block.entity;
 
 import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.itemStackHandler.RestrictedItemStackHandler;
-import com.Infinity.Nexus.Market.market.SQLiteManager;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.screen.seller.VendingMenu;
 import com.Infinity.Nexus.Market.utils.ItemStackHandlerUtils;
 import net.minecraft.ChatFormatting;
@@ -27,9 +27,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -211,7 +208,7 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
         if (item.isEmpty() || quantidade <= 0) return false;
         if (isBlacklisted(item)) {
             if (player instanceof ServerPlayer sp) {
-                sp.displayClientMessage(Component.translatable("message.infinity_nexus_market.blacklist_item"), true);
+                sp.displayClientMessage(Component.translatable("message.infinity_nexus_market.blacklist_item", ModConfigs.prefix), true);
             }
             return false;
         }
@@ -222,9 +219,9 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
 
         if (!isServerItem) {
             // Verifica se o jogador pode adicionar mais vendas
-            if (!SQLiteManager.canPlayerAddMoreSales(sellerUUID.toString())) {
-                int currentSales = SQLiteManager.getPlayerCurrentSalesCount(sellerUUID.toString());
-                int maxSales = SQLiteManager.getPlayerMaxSales(sellerUUID.toString());
+            if (!DatabaseManager.canPlayerAddMoreSales(sellerUUID.toString())) {
+                int currentSales = DatabaseManager.getPlayerCurrentSalesCount(sellerUUID.toString());
+                int maxSales = DatabaseManager.getPlayerMaxSales(sellerUUID.toString());
 
                 if (player instanceof ServerPlayer sp) {
                     Component msg = Component.translatable(
@@ -250,7 +247,7 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
         }
 
         if (isServerItem) {
-            SQLiteManager.addOrUpdateServerItem(
+            DatabaseManager.addOrUpdateServerItem(
                     UUID.randomUUID().toString(),
                     item.copy(),
                     preco,
@@ -258,7 +255,7 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
                     serverLevel
             );
         } else {
-            SQLiteManager.addPlayerSale(
+            DatabaseManager.addPlayerSale(
                     sellerUUID.toString(),
                     sellerName,
                     item.copy(),

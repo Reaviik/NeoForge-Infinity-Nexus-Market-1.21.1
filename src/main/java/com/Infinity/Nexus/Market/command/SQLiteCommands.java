@@ -1,6 +1,7 @@
 package com.Infinity.Nexus.Market.command;
 
-import com.Infinity.Nexus.Market.market.SQLiteManager;
+import com.Infinity.Nexus.Market.config.ModConfigs;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
@@ -26,20 +27,20 @@ public class SQLiteCommands {
         CommandSourceStack source = context.getSource();
         try {
             // Estatísticas básicas da database
-            List<SQLiteManager.MarketItemEntry> playerSales = SQLiteManager.getAllPlayerSales();
-            List<SQLiteManager.MarketItemEntry> serverItems = SQLiteManager.getAllServerItems();
+            List<DatabaseManager.MarketItemEntry> playerSales = DatabaseManager.getAllPlayerSales();
+            List<DatabaseManager.MarketItemEntry> serverItems = DatabaseManager.getAllServerItems();
             
             source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.stats.title"), false);
-            source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.stats.player_sales", playerSales.size()), false);
-            source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.stats.server_items", serverItems.size()), false);
+            source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.stats.player_sales", ModConfigs.prefix, playerSales.size()), false);
+            source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.stats.server_items", ModConfigs.prefix, serverItems.size()), false);
             
             // Total de vendas ativas
             long activeSales = playerSales.stream().count();
-            source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.stats.active_sales", activeSales), false);
+            source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.stats.active_sales", ModConfigs.prefix, activeSales), false);
             
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.stats.error", e.getMessage()));
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.stats.error", ModConfigs.prefix, e.getMessage()));
             return 0;
         }
     }
@@ -47,11 +48,11 @@ public class SQLiteCommands {
     private static int cleanCorruptedData(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         try {
-            SQLiteManager.cleanCorruptedData();
-            source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.clean.success"), false);
+            DatabaseManager.cleanCorruptedData();
+            source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.clean.success", ModConfigs.prefix), false);
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.clean.error", e.getMessage()));
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.clean.error", ModConfigs.prefix, e.getMessage()));
             return 0;
         }
     }

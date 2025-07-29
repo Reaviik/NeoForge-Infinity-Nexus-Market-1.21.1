@@ -2,7 +2,7 @@ package com.Infinity.Nexus.Market.networking.packet;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
 import com.Infinity.Nexus.Market.config.ModConfigs;
-import com.Infinity.Nexus.Market.market.SQLiteManager;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -20,6 +20,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import java.util.UUID;
 
 public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements CustomPacketPayload {
+    private static final UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
     public static final Type<MarketBuyC2SPacket> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(InfinityNexusMarket.MOD_ID, "market_buy"));
 
@@ -44,20 +45,20 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
             if (!(player.level() instanceof ServerLevel serverLevel)) return;
 
             // Busca o item no market
-            SQLiteManager.MarketItemEntry marketEntry = SQLiteManager.getAllMarketItems().stream()
+            DatabaseManager.MarketItemEntry marketEntry = DatabaseManager.getAllMarketItems().stream()
                     .filter(e -> e.entryId.equals(packet.transactionId().toString()))
                     .findFirst()
                     .orElse(null);
 
             if (marketEntry == null) {
-                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.sale_not_found"), false);
+                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.sale_not_found", ModConfigs.prefix), false);
                 return;
             }
 
             // Desserializa o ItemStack
-            ItemStack itemStack = SQLiteManager.deserializeItemStack(marketEntry.itemNbt, serverLevel);
+            ItemStack itemStack = DatabaseManager.deserializeItemStack(marketEntry.itemNbt, serverLevel);
             if (itemStack.isEmpty()) {
-                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.invalid_item"), false);
+                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.invalid_item", ModConfigs.prefix), false);
                 return;
             }
 
@@ -73,20 +74,18 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
             }
 
             if (!canPlace) {
-                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.inventory_full"), false);
+                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.inventory_full", ModConfigs.prefix), false);
                 return;
             }
 
-            // Restante da lógica...
-            UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
             boolean isServerItem = "server".equals(marketEntry.type);
 
             int availableQuantity = isServerItem ? Integer.MAX_VALUE : marketEntry.quantity;
             int quantityToBuy = Math.min(packet.quantity(), availableQuantity);
             double cost = marketEntry.currentPrice * quantityToBuy;
 
-            if (SQLiteManager.getPlayerBalance(player.getUUID().toString()) < cost) {
-                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.insufficient_balance"), false);
+            if (DatabaseManager.getPlayerBalance(player.getUUID().toString()) < cost) {
+                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.insufficient_balance", ModConfigs.prefix), false);
                 return;
             }
 
@@ -97,31 +96,27 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
             }
 
             deliverItem(player, itemStack, quantityToBuy);
-
-            if (isServerItem) {
-                SQLiteManager.addSalesHistory(
-                        marketEntry.itemNbt,
-                        quantityToBuy,
-                        marketEntry.currentPrice,
-                        SERVER_UUID.toString(),
-                        "Server"
-                );
-            }
-
+            DatabaseManager.addSalesHistory(
+                    marketEntry.itemNbt,
+                    quantityToBuy,
+                    marketEntry.currentPrice,
+                    SERVER_UUID.toString(),
+                    "Server"
+            );
             sendPurchaseMessage(player, itemStack, quantityToBuy, cost);
         });
     }
 
-    private static void processTransaction(ServerPlayer player, SQLiteManager.MarketItemEntry entry, int quantity, double cost, boolean isServerItem) {
+    private static void processTransaction(ServerPlayer player, DatabaseManager.MarketItemEntry entry, int quantity, double cost, boolean isServerItem) {
         // Subtrai saldo do comprador
-        SQLiteManager.setPlayerBalance(
+        DatabaseManager.setPlayerBalance(
                 player.getUUID().toString(),
                 player.getName().getString(),
-                SQLiteManager.getPlayerBalance(player.getUUID().toString()) - cost
+                DatabaseManager.getPlayerBalance(player.getUUID().toString()) - cost
         );
 
         // Atualiza estatísticas do comprador
-        SQLiteManager.incrementPlayerStats(
+        DatabaseManager.incrementPlayerStats(
                 player.getUUID().toString(),
                 cost,    // total gasto
                 0.0,     // total ganho
@@ -131,14 +126,14 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
 
         // Se não for item do servidor, adiciona saldo ao vendedor
         if (!isServerItem && entry.sellerUUID != null) {
-            SQLiteManager.setPlayerBalance(
+            DatabaseManager.setPlayerBalance(
                     entry.sellerUUID,
                     entry.sellerName != null ? entry.sellerName : "Unknown",
-                    SQLiteManager.getPlayerBalance(entry.sellerUUID) + cost
+                    DatabaseManager.getPlayerBalance(entry.sellerUUID) + cost
             );
 
             // Atualiza estatísticas do vendedor
-            SQLiteManager.incrementPlayerStats(
+            DatabaseManager.incrementPlayerStats(
                     entry.sellerUUID,
                     0.0,     // total gasto
                     cost,    // total ganho
@@ -148,23 +143,32 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
         }
     }
 
-    private static void updatePlayerSale(SQLiteManager.MarketItemEntry entry,
-                                         int quantityBought, ServerLevel serverLevel) {
-        if (quantityBought >= entry.quantity) {
-            // Remove completamente se comprou toda a quantidade
-            SQLiteManager.removeMarketItem(entry.entryId);
+    private static void updatePlayerSale(DatabaseManager.MarketItemEntry entry, int quantityBought, ServerLevel serverLevel) {
+        if(entry.type.equals("server")){
+            return;
+        }
+        if (quantityBought >= entry.quantity && entry.type.equals("player")) {
+            DatabaseManager.removeMarketItem(entry.entryId);
         } else {
             entry.quantity -= quantityBought;
-            SQLiteManager.addOrUpdateMarketItem(
+            DatabaseManager.addOrUpdateMarketItem(
                     entry.entryId,
-                    "player",
+                    entry.type,
                     entry.sellerUUID,
                     entry.sellerName,
-                    SQLiteManager.deserializeItemStack(entry.itemNbt, serverLevel),
-                    entry.quantity,
+                    DatabaseManager.deserializeItemStack(entry.itemNbt, serverLevel),
+                    entry.quantity - quantityBought,
                     entry.basePrice,
                     entry.currentPrice,
                     serverLevel
+            );
+
+            DatabaseManager.addSalesHistory(
+                    entry.entryId,
+                    quantityBought,
+                    entry.currentPrice,
+                    entry.sellerUUID,
+                    entry.type
             );
         }
     }

@@ -1,7 +1,7 @@
 package com.Infinity.Nexus.Market.networking.packet;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
-import com.Infinity.Nexus.Market.market.SQLiteManager;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.networking.ModMessages;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -33,7 +33,7 @@ public record RequestMarketSyncC2SPacket() implements CustomPacketPayload {
             if (!(player.level() instanceof ServerLevel serverLevel)) return;
 
             // Busca todos os itens do mercado diretamente do SQLiteManager
-            List<SQLiteManager.MarketItemEntry> marketItems = SQLiteManager.getAllMarketItems();
+            List<DatabaseManager.MarketItemEntry> marketItems = DatabaseManager.getAllMarketItems();
 
             // Cria e envia o pacote de sincronização
             var syncPacket = new MarketSalesSyncS2CPacket(

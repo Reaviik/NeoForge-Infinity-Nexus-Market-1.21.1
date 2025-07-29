@@ -1,5 +1,6 @@
 package com.Infinity.Nexus.Market.command.response;
 
+import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.utils.BackupManager;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
@@ -18,10 +19,10 @@ public class Backup {
         ServerLevel level = player.serverLevel();
         try {
             BackupManager.backupAll(level, Paths.get("backups"));
-            player.displayClientMessage(Component.translatable("message.infinity_nexus_market.backup_success"), false);
+            player.displayClientMessage(Component.translatable("message.infinity_nexus_market.backup_success", ModConfigs.prefix), false);
             return 1;
         } catch (Exception e) {
-            player.displayClientMessage(Component.translatable("message.infinity_nexus_market.backup_fail", e.getMessage()), false);
+            player.displayClientMessage(Component.translatable("message.infinity_nexus_market.backup_fail", ModConfigs.prefix, e.getMessage()), false);
             return 0;
         }
     }
@@ -36,14 +37,14 @@ public class Backup {
         try {
             boolean success = BackupManager.restoreBackup(backupPath);
             if (success) {
-                player.displayClientMessage(Component.translatable("command.infinity_nexus_market.backup.restore.success", backupFileName), false);
+                player.displayClientMessage(Component.translatable("command.infinity_nexus_market.backup.restore.success", ModConfigs.prefix, backupFileName), false);
                 return 1;
             } else {
-                player.displayClientMessage(Component.translatable("command.infinity_nexus_market.backup.restore.fail", backupFileName), false);
+                player.displayClientMessage(Component.translatable("command.infinity_nexus_market.backup.restore.fail", ModConfigs.prefix, backupFileName), false);
                 return 0;
             }
         } catch (Exception e) {
-            player.displayClientMessage(Component.translatable("command.infinity_nexus_market.backup.restore.error", e.getMessage()), false);
+            player.displayClientMessage(Component.translatable("command.infinity_nexus_market.backup.restore.error", ModConfigs.prefix, e.getMessage()),  false);
             return 0;
         }
     }

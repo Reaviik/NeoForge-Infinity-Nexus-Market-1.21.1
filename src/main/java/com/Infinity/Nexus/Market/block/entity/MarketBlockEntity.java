@@ -1,7 +1,6 @@
 package com.Infinity.Nexus.Market.block.entity;
 
-import com.Infinity.Nexus.Market.InfinityNexusMarket;
-import com.Infinity.Nexus.Market.market.SQLiteManager;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.networking.ModMessages;
 import com.Infinity.Nexus.Market.networking.packet.MarketSalesSyncS2CPacket;
 import com.Infinity.Nexus.Market.screen.market.MarketMenu;
@@ -71,7 +70,7 @@ public class MarketBlockEntity extends BlockEntity implements MenuProvider {
     public AbstractContainerMenu createMenu(int pContainerId, Inventory pPlayerInventory, Player pPlayer) {
         if (pPlayer instanceof ServerPlayer serverPlayer && level instanceof ServerLevel serverLevel) {
             // Obtém as vendas diretamente do SQLiteManager
-            List<SQLiteManager.MarketItemEntry> marketItems = SQLiteManager.getAllMarketItems();
+            List<DatabaseManager.MarketItemEntry> marketItems = DatabaseManager.getAllMarketItems();
 
             // Converte para DTOs e envia para o cliente
             var packet = new MarketSalesSyncS2CPacket(

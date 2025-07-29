@@ -1,7 +1,8 @@
 package com.Infinity.Nexus.Market.networking.packet;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
-import com.Infinity.Nexus.Market.market.SQLiteManager;
+import com.Infinity.Nexus.Market.config.ModConfigs;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -35,46 +36,37 @@ public record MarketRemoveSaleC2SPacket(UUID transactionId) implements CustomPac
             ServerPlayer player = (ServerPlayer) context.player();
             if (player == null) return;
 
-            if (!(player.level() instanceof ServerLevel serverLevel)) return;
-
-            // Sempre usar a Overworld para operações de market
-            ServerLevel overworld = serverLevel.getServer().getLevel(net.minecraft.world.level.Level.OVERWORLD);
-            if (overworld == null) {
-                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.overworld_not_found"), false);
-                return;
-            }
-
             // Busca a venda diretamente no SQLiteManager
-            SQLiteManager.MarketItemEntry saleEntry = SQLiteManager.getAllPlayerSales().stream()
+            DatabaseManager.MarketItemEntry saleEntry = DatabaseManager.getAllPlayerSales().stream()
                     .filter(e -> e.entryId.equals(packet.transactionId().toString()))
                     .findFirst()
                     .orElse(null);
 
             if (saleEntry == null) {
-                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.sale_not_found"), false);
+                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.sale_not_found", ModConfigs.prefix), false);
                 return;
             }
 
             // Verifica se o jogador é o vendedor
-            if (!player.getUUID().toString().equals(saleEntry.sellerUUID)) {
-                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.not_seller"), false);
+            if (!player.getUUID().toString().equals(saleEntry.sellerUUID) || !player.isCreative()) {
+                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.not_seller", ModConfigs.prefix), false);
                 return;
             }
 
             // Remove a venda
-            boolean removed = SQLiteManager.removeMarketItem(saleEntry.entryId);
+            boolean removed = DatabaseManager.removeMarketItem(saleEntry.entryId);
             if (!removed) {
-                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.sale_remove_failed"), false);
+                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.sale_remove_failed", ModConfigs.prefix), false);
                 return;
             }
 
             // Devolve o item ao jogador
-            ItemStack item = SQLiteManager.deserializeItemStack(saleEntry.itemNbt, overworld);
+            ItemStack item = DatabaseManager.deserializeItemStack(saleEntry.itemNbt, ((ServerPlayer) context.player()).serverLevel());
             if (!item.isEmpty()) {
                 player.getInventory().placeItemBackInInventory(item.copy());
             }
 
-            player.displayClientMessage(Component.translatable("message.infinity_nexus_market.sale_removed"), false);
+            player.displayClientMessage(Component.translatable("message.infinity_nexus_market.sale_removed", ModConfigs.prefix), false);
         });
     }
 }

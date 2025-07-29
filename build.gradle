@@ -132,13 +132,14 @@ dependencies {
     implementation "curse.maven:jade-324717:6291517"
     implementation "curse.maven:guideme-1173950:6396436"
 
-    implementation group: 'org.xerial', name: 'sqlite-jdbc', version: '3.45.3.0'
+    //implementation group: 'org.xerial', name: 'sqlite-jdbc', version: '3.45.3.0'
 
     // To this:
-    implementation 'org.xerial:sqlite-jdbc:3.45.3.0'
-    runtimeOnly 'org.xerial:sqlite-jdbc:3.45.3.0'
-    shadow 'org.xerial:sqlite-jdbc:3.45.3.0'
+    //implementation 'org.xerial:sqlite-jdbc:3.45.3.0'
+    //runtimeOnly 'org.xerial:sqlite-jdbc:3.45.3.0'
+    //shadow 'org.xerial:sqlite-jdbc:3.45.3.0'
 
+    implementation "curse.maven:geckolib-388172:6659026"
 
     additionalRuntimeClasspath "curse.maven:mysqlconnector-561280:4684944"
     additionalRuntimeClasspath "curse.maven:sqliteconnector-560832:3582173"
@@ -215,20 +216,19 @@ idea {
         downloadJavadoc = true
     }
 }
-shadowJar {
-    archiveClassifier.set('')
-    mergeServiceFiles()
-    relocate 'org.sqlite', 'com.infinitynexus.shaded.sqlite'
-
-    // Inclui explicitamente o driver SQLite
-    dependencies {
-        include(dependency('org.xerial:sqlite-jdbc:.*'))
-    }
-}
-
-// Configuração especial para runClient
-tasks.named('runClient') {
-    // Garante que as dependências runtime são incluídas
-    classpath = configurations.runtimeClasspath
-}
-jar.finalizedBy('shadowJar')
+//shadowJar {
+//    archiveClassifier.set('')
+//    mergeServiceFiles()
+//    relocate 'org.sqlite', 'com.infinitynexus.shaded.sqlite'
+//
+//    // Inclui explicitamente o driver SQLite
+//    dependencies {
+//        include(dependency('org.xerial:sqlite-jdbc:.*'))
+//    }
+//}
+//
+//// Configuração especial para runClient
+//tasks.named('runClient') {
+//    // Garante que as dependências runtime são incluídas
+//    classpath = configurations.runtimeClasspath
+//}

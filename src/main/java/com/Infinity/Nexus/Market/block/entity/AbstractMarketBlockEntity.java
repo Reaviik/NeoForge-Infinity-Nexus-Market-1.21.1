@@ -22,10 +22,14 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
+import software.bernie.geckolib.animatable.GeoBlockEntity;
+import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.animation.*;
+import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.UUID;
 
-public abstract class AbstractMarketBlockEntity extends BlockEntity implements MenuProvider {
+public abstract class AbstractMarketBlockEntity extends BlockEntity implements MenuProvider, GeoBlockEntity {
     protected String owner;
     protected String ownerName;
     protected boolean autoEnabled = false;
@@ -167,11 +171,6 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
         setChanged();
     }
 
-    public void toggleWork(boolean work) {
-        autoEnabled = work;
-        setChanged();
-    }
-
     public boolean isAutoEnabled() {
         return autoEnabled;
     }
@@ -186,5 +185,23 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
 
     public boolean isAutoNotify() {
         return autoNotify;
+    }
+
+    protected static final RawAnimation DEPLOY_ANIM = RawAnimation.begin().thenPlay("misc.deploy").thenLoop("misc.idle");
+
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, this::deployAnimController));
+    }
+
+    protected <E extends AbstractMarketBlockEntity> PlayState deployAnimController(final AnimationState<E> state) {
+        return state.setAndContinue(DEPLOY_ANIM);
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
     }
 }

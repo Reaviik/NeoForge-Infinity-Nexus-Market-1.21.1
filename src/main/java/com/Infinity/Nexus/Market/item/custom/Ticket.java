@@ -2,7 +2,7 @@ package com.Infinity.Nexus.Market.item.custom;
 
 import com.Infinity.Nexus.Market.component.MarketDataComponents;
 import com.Infinity.Nexus.Market.component.TicketItemComponent;
-import com.Infinity.Nexus.Market.market.SQLiteManager;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
@@ -59,7 +59,7 @@ public class Ticket extends Item {
             String sellerName = ticket.sellerName();
             if ((sellerName == null || sellerName.isEmpty()) && ticket.entryId() != null && !ticket.entryId().isEmpty()) {
                 // Busca o nome do vendedor na database market
-                sellerName = SQLiteManager.getSellerNameByEntryId(ticket.entryId());
+                sellerName = DatabaseManager.getSellerNameByEntryId(ticket.entryId());
                 if (sellerName == null || sellerName.isEmpty()) sellerName = "?";
             }
             components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_seller", sellerName));

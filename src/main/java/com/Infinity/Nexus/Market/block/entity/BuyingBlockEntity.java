@@ -6,8 +6,8 @@ import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.item.ModItemsMarket;
 import com.Infinity.Nexus.Market.itemStackHandler.RestrictedItemStackHandler;
 import com.Infinity.Nexus.Market.screen.buying.BuyingMenu;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.utils.ItemStackHandlerUtils;
-import com.Infinity.Nexus.Market.market.SQLiteManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -25,15 +25,17 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 public class BuyingBlockEntity extends AbstractMarketBlockEntity {
     private static final int TICKET_SLOT = 0;
     private static final int AUTO_SLOT = 1;
+    private static final String LOG_PREFIX = "[BuyingMachine] ";
+    private static final boolean DEBUG_MODE = false;
+
     private int progress = 0;
     private int maxProgress = ModConfigs.buyingTicksPerOperation;
+    private DatabaseManager.MarketItemEntry lastFoundEntry = null;
 
     public BuyingBlockEntity(BlockPos pPos, BlockState pBlockState) {
         super(ModBlockEntities.BUYING_MACHINE_BE.get(), pPos, pBlockState, 2);
@@ -133,11 +135,11 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
     public void tick(Level pLevel, BlockPos pPos, BlockState pState) {
         if (pLevel.isClientSide) return;
 
-        if (autoEnabled) {
-            autoBuyInMarket();
-        }
+        //if (!autoEnabled || getEnergyStored() < ModConfigs.buyingEnergyPerOperation) {
+        //    return;
+        //}
 
-        if(owner == null || ownerName == null) {
+        if (owner == null || ownerName == null) {
             return;
         }
 
@@ -146,15 +148,15 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
         }
 
         TicketItemComponent itemComponent = isValidTicket();
-        if(itemComponent == null){
+        if (itemComponent == null) {
             return;
         }
 
-        if(!ownerHasBalance(itemComponent.price())){
+        if (!ownerHasBalance(itemComponent.price())) {
             return;
         }
 
-        if(!slotAcceptItem(itemComponent.toItemStack())){
+        if (!slotAcceptItem(itemComponent.toItemStack())) {
             return;
         }
 
@@ -162,11 +164,12 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
     }
 
     private boolean slotAcceptItem(ItemStack itemStack) {
-        return ItemStackHandlerUtils.canInsertItemAndAmountIntoOutputSlot(itemStack.getItem(), itemStack.getCount(), AUTO_SLOT, itemHandler);
+        return ItemStackHandlerUtils.canInsertItemAndAmountIntoOutputSlot(
+                itemStack.getItem(), itemStack.getCount(), AUTO_SLOT, itemHandler);
     }
 
-    private boolean ownerHasBalance(int price) {
-        return SQLiteManager.getPlayerBalance(owner) >= price;
+    private boolean ownerHasBalance(double price) {
+        return owner != null && DatabaseManager.getPlayerBalance(owner) >= price;
     }
 
     private TicketItemComponent isValidTicket() {
@@ -175,123 +178,160 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
             return null;
         }
         TicketItemComponent itemComponent = ticket.get(MarketDataComponents.TICKET_ITEM.get());
-
-        if(itemComponent.price() <= 0 || itemComponent.toItemStack().isEmpty()){
-            return null;
-        }
-        return itemComponent;
-    }
-
-    public void autoBuyInMarket() {
+        return (itemComponent.price() > 0 && !itemComponent.toItemStack().isEmpty()) ? itemComponent : null;
     }
 
     public void selfBuyInMarket(ServerPlayer player) {
-        if(player == null){
-            return;
-        }
-        executeBuyTransaction(player, isValidTicket());
+        if (player == null) return;
+        executeBuyTransaction(player, isValidTicket(), false);
     }
 
     public void processAutoBuy(TicketItemComponent itemComponent) {
-        Player player = level.getPlayerByUUID(UUID.fromString(owner));
-        if(player == null){
-            return;
-        }
+        if (owner == null) return;
 
-        if (!(player instanceof ServerPlayer serverPlayer)) {
-            return;
-        }
-        executeBuyTransaction(serverPlayer, itemComponent);
+        //extractEnergy(ModConfigs.buyingEnergyPerOperation, false);
+        executeBuyTransaction(null, itemComponent, true);
     }
 
-    private void executeBuyTransaction(ServerPlayer player, TicketItemComponent itemComponent) {
-        if (level == null) {
+    /**
+     * Executes a buy transaction for the specified player.
+     * @param player The player executing the transaction
+     * @param itemComponent The ticket item component with purchase details
+     * @param auto Whether this is an automatic transaction initiated by the machine
+     */
+    private void executeBuyTransaction(ServerPlayer player, TicketItemComponent itemComponent, boolean auto) {
+        if (itemComponent == null || !(level instanceof ServerLevel serverLevel)) {
             return;
         }
 
-        List<SQLiteManager.MarketItemEntry> marketItems = SQLiteManager.getAllMarketItems();
+        // For auto transactions, use owner UUID instead of player
+        String transactionPlayerUUID = auto ? owner : (player != null ? player.getUUID().toString() : null);
+        if (transactionPlayerUUID == null) return;
 
-        for (SQLiteManager.MarketItemEntry entry : marketItems) {
-            ItemStack saleItem = SQLiteManager.deserializeItemStack(entry.itemNbt, (ServerLevel) level);
-            int saleQuantity = entry.quantity;
-            double salePrice = entry.currentPrice;
+        if (!validateTransaction(player, itemComponent, auto)) {
+            return;
+        }
 
-            double price = autoPrice != 0 ? autoPrice : itemComponent.price();
-            int quantity = autoMinAmount != 0 ? autoMinAmount : itemComponent.count();
+        double price = autoPrice != 0 ? autoPrice : itemComponent.price();
+        int quantity = autoMinAmount != 0 ? autoMinAmount : itemComponent.count();
+        quantity = calculateAvailableQuantity(quantity);
 
-            boolean sameItem = ItemStack.isSameItemSameComponents(saleItem, itemComponent.toItemStack());
-            boolean samePrice = salePrice == price;
-
-            if (sameItem && samePrice) {
-                // Verifica se a quantidade disponível é suficiente
-                if (saleQuantity < quantity) {
-                    quantity = saleQuantity; // Ajusta para comprar apenas o disponível
-                }
-
-                // Verifica saldo do jogador
-                double totalCost = price * quantity;
-                if (SQLiteManager.getPlayerBalance(player.getUUID().toString()) < totalCost) {
-                    player.displayClientMessage(Component.translatable("message.infinity_nexus_market.insufficient_balance"), false);
-                    return;
-                }
-
-                // Atualiza saldo do jogador
-                SQLiteManager.setPlayerBalance(
-                        player.getUUID().toString(),
-                        player.getName().getString(),
-                        SQLiteManager.getPlayerBalance(player.getUUID().toString()) - totalCost
-                );
-
-                // Atualiza estatísticas
-                SQLiteManager.incrementPlayerStats(
-                        player.getUUID().toString(),
-                        totalCost,  // total gasto
-                        0.0,        // total ganho
-                        0,          // total vendas
-                        1           // total compras
-                );
-
-                // Atualiza ou remove a entrada do mercado
-                if ("player".equals(entry.type)) {
-                    if (quantity >= saleQuantity) {
-                        SQLiteManager.removeMarketItem(entry.entryId);
-                        SQLiteManager.incrementPlayerStats(
-                                entry.sellerUUID,
-                                0.0,        // total gasto
-                                totalCost,  // total ganho
-                                1,          // total vendas
-                                0           // total compras
-                        );
-                        System.out.println("MarketBuyC2SPacket: Removendo item do mercado: " + entry.entryId);
-                    } else {
-                        // Atualiza a quantidade restante
-                        ItemStack updatedItem = saleItem.copy();
-                        updatedItem.setCount(saleQuantity - quantity);
-
-                        SQLiteManager.addOrUpdateMarketItem(
-                                entry.entryId,
-                                "player",
-                                entry.sellerUUID,
-                                entry.sellerName,
-                                updatedItem,
-                                saleQuantity - quantity,
-                                entry.basePrice,
-                                entry.currentPrice,
-                                (ServerLevel) level
-                        );
-                        System.out.println("MarketBuyC2SPacket: Atualizando item do mercado: " + entry.entryId);
-                    }
-                }
-
-                // Entrega os itens
-                ItemStack deliveredItem = saleItem.copy();
-                deliveredItem.setCount(quantity);
-                postItemInSlot(deliveredItem);
-
-                // Notifica o jogador
-                notifyOwnerIfNeeded((ServerLevel) level, saleItem, quantity, totalCost);
-                return;
+        DatabaseManager.MarketItemEntry entry = findMarketEntry(itemComponent, price, serverLevel);
+        if (entry == null) {
+            if (!auto && player != null) {
+                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.item_not_found", ModConfigs.prefix), false);
             }
+            return;
+        }
+
+        ItemStack saleItem = DatabaseManager.deserializeItemStack(entry.itemNbt, serverLevel);
+        int saleQuantity = entry.quantity;
+        quantity = Math.min(quantity, saleQuantity);
+
+        double totalCost = price * quantity;
+        if (!processPayment(transactionPlayerUUID, player, entry.sellerUUID, totalCost, quantity, saleQuantity, auto)) {
+            return;
+        }
+
+        updateMarketEntry(entry, quantity, saleItem, saleQuantity, serverLevel);
+        deliverItems(saleItem, quantity);
+        notifyOwnerIfNeeded(serverLevel, saleItem, quantity, totalCost);
+    }
+
+    private boolean validateTransaction(ServerPlayer player, TicketItemComponent itemComponent, boolean auto) {
+        if (itemComponent.price() <= 0 || itemComponent.toItemStack().isEmpty()) {
+            if (!auto) {
+                player.displayClientMessage(
+                        Component.translatable("message.infinity_nexus_market.invalid_ticket"), false);
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private int calculateAvailableQuantity(int desiredQuantity) {
+        int spaceInSlot = itemHandler.getStackInSlot(AUTO_SLOT).isEmpty()
+                ? 64
+                : 64 - itemHandler.getStackInSlot(AUTO_SLOT).getCount();
+        return Math.min(desiredQuantity, spaceInSlot);
+    }
+
+    private DatabaseManager.MarketItemEntry findMarketEntry(TicketItemComponent itemComponent, double price, ServerLevel serverLevel) {
+        String serializedItem = DatabaseManager.serializeItemStack(itemComponent.toItemStack(), serverLevel);
+        if (lastFoundEntry != null &&
+                lastFoundEntry.itemNbt.equals(serializedItem) &&
+                lastFoundEntry.currentPrice == price) {
+            return lastFoundEntry;
+        }
+
+        DatabaseManager.MarketItemEntry entry = DatabaseManager.getMarketItemByStackAndPrice(itemComponent.toItemStack(), price, serverLevel);
+
+        if (entry != null) {
+            lastFoundEntry = entry;
+        }
+
+        return entry;
+    }
+
+    private boolean processPayment(String buyerUUID, ServerPlayer player, String sellerUUID, double totalCost, int quantity, int saleQuantity, boolean auto) {
+        double buyerBalance = DatabaseManager.getPlayerBalance(buyerUUID);
+
+        if (buyerBalance < totalCost) {
+            if (!auto && player != null) {
+                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.insufficient_balance", ModConfigs.prefix), false);
+            }
+            return false;
+        }
+
+        // Update buyer balance
+        String buyerName = player != null ? player.getName().getString() : DatabaseManager.getSellerNameByEntryUUID(buyerUUID);
+        DatabaseManager.setPlayerBalance(buyerUUID, buyerName, buyerBalance - totalCost);
+        DatabaseManager.incrementPlayerStats(buyerUUID, totalCost, 0.0, 0, 1);
+
+        return true;
+    }
+
+    private void updateMarketEntry(DatabaseManager.MarketItemEntry entry, int quantity,
+                                   ItemStack saleItem, int saleQuantity, ServerLevel serverLevel) {
+        if ("player".equals(entry.type)) {
+            if (quantity >= saleQuantity) {
+                DatabaseManager.removeMarketItem(entry.entryId);
+                DatabaseManager.incrementPlayerStats(
+                        entry.sellerUUID,
+                        0.0, entry.currentPrice * quantity, 1, 0
+                );
+            } else {
+                ItemStack updatedItem = saleItem.copy();
+                updatedItem.setCount(saleQuantity - quantity);
+
+                DatabaseManager.addOrUpdateMarketItem(
+                        entry.entryId,
+                        "player",
+                        entry.sellerUUID,
+                        entry.sellerName,
+                        updatedItem,
+                        saleQuantity - quantity,
+                        entry.basePrice,
+                        entry.currentPrice,
+                        serverLevel
+                );
+            }
+        }
+
+        DatabaseManager.addSalesHistory(
+                entry.entryId,
+                quantity,
+                entry.currentPrice,
+                entry.sellerUUID,
+                entry.type
+        );
+    }
+
+    private void deliverItems(ItemStack saleItem, int quantity) {
+        synchronized (this) {
+            ItemStack deliveredItem = saleItem.copy();
+            deliveredItem.setCount(quantity);
+            postItemInSlot(deliveredItem);
         }
     }
 
@@ -300,24 +340,37 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
     }
 
     private void notifyOwnerIfNeeded(ServerLevel serverLevel, ItemStack item, int quantity, double cost) {
-        if (autoNotify) {
-            Player ownerPlayer = serverLevel.getPlayerByUUID(UUID.fromString(owner));
-            if (ownerPlayer != null) {
-                Component itemComponentMsg = ComponentUtils.wrapInSquareBrackets(item.getHoverName())
-                        .withStyle(style -> style.withColor(ChatFormatting.AQUA)
-                                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ITEM,
-                                        new HoverEvent.ItemStackInfo(item))));
-                Component priceComponent = Component.translatable("gui.infinity_nexus_market.tooltip.price_value",
-                        String.format("%.2f", cost)).withStyle(ChatFormatting.GOLD);
-                Component msg = Component.translatable(
-                        "message.infinity_nexus_market.buy_success_item",
-                        ModConfigs.prefix,
-                        quantity,
-                        itemComponentMsg,
-                        priceComponent
-                );
-                ownerPlayer.displayClientMessage(msg, false);
-            }
+        if (!autoNotify || owner == null) return;
+
+        Player ownerPlayer = serverLevel.getPlayerByUUID(UUID.fromString(owner));
+        if (ownerPlayer == null) {
+            return;
+        }
+
+        ownerPlayer.displayClientMessage(createTransactionMessage(item, quantity, cost), false);
+    }
+
+    private Component createTransactionMessage(ItemStack item, int quantity, double cost) {
+        Component itemComponentMsg = ComponentUtils.wrapInSquareBrackets(item.getHoverName())
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA)
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ITEM,
+                                new HoverEvent.ItemStackInfo(item))));
+        Component priceComponent = Component.translatable("gui.infinity_nexus_market.tooltip.price_value",
+                String.format("%.2f", cost)).withStyle(ChatFormatting.GOLD);
+
+        return Component.translatable(
+                "message.infinity_nexus_market.buy_success_item",
+                ModConfigs.prefix,
+                quantity,
+                itemComponentMsg,
+                priceComponent
+        );
+    }
+
+    private void debugLog(String message) {
+        if (DEBUG_MODE && level != null && !level.isClientSide) {
+            level.getServer().getPlayerList().broadcastSystemMessage(
+                    Component.literal(LOG_PREFIX + message), false);
         }
     }
 }

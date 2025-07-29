@@ -1,7 +1,7 @@
 package com.Infinity.Nexus.Market.command.response;
 
 import com.Infinity.Nexus.Market.config.ModConfigs;
-import com.Infinity.Nexus.Market.market.SQLiteManager;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
@@ -9,8 +9,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 
 public class Balance {
     public static int see(CommandContext<CommandSourceStack> context) {
@@ -19,7 +18,7 @@ public class Balance {
             var targets = GameProfileArgument.getGameProfiles(context, "target");
 
             for (var profile : targets) {
-                double currentBalance = SQLiteManager.getPlayerBalance(profile.getId().toString());
+                double currentBalance = DatabaseManager.getPlayerBalance(profile.getId().toString());
 
                 source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.balance.balance",
                         ModConfigs.prefix,
@@ -40,17 +39,25 @@ public class Balance {
             double amount = DoubleArgumentType.getDouble(context, "amount");
 
             for (var profile : targets) {
-                double currentBalance = SQLiteManager.getPlayerBalance(profile.getId().toString());
-                SQLiteManager.setPlayerBalance(profile.getId().toString(), profile.getName(), currentBalance + amount);
+                double currentBalance = DatabaseManager.getPlayerBalance(profile.getId().toString());
+                DatabaseManager.setPlayerBalance(profile.getId().toString(), profile.getName(), currentBalance + amount);
                 source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.balance.add.success",
                         ModConfigs.prefix,
                         amount,
                         profile.getName(),
                         (currentBalance + amount)), false);
+                Player target = source.getServer().getPlayerList().getPlayer(profile.getId());
+                if (target != null) {
+                    target.sendSystemMessage(Component.translatable("command.infinity_nexus_market.sqlite.balance.add.success_receiver",
+                            ModConfigs.prefix,
+                            amount,
+                            profile.getName(),
+                            (currentBalance + amount)));
+                }
             }
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.balance.add.error", e.getMessage()));
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.balance.add.error", ModConfigs.prefix, e.getMessage()));
             return 0;
         }
     }
@@ -62,22 +69,32 @@ public class Balance {
             double amount = DoubleArgumentType.getDouble(context, "amount");
 
             for (var profile : targets) {
-                double currentBalance = SQLiteManager.getPlayerBalance(profile.getId().toString());
+                double currentBalance = DatabaseManager.getPlayerBalance(profile.getId().toString());
                 if (currentBalance >= amount) {
-                    SQLiteManager.setPlayerBalance(profile.getId().toString(), profile.getName(), currentBalance - amount);
+                    DatabaseManager.setPlayerBalance(profile.getId().toString(), profile.getName(), currentBalance - amount);
                     source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.balance.remove.success",
+                            ModConfigs.prefix,
                             amount,
                             profile.getName(),
                             (currentBalance - amount)), false);
+                    Player target = source.getServer().getPlayerList().getPlayer(profile.getId());
+                    if (target != null) {
+                        target.sendSystemMessage(Component.translatable("command.infinity_nexus_market.sqlite.balance.remove.success_removed",
+                                ModConfigs.prefix,
+                                amount,
+                                profile.getName(),
+                                (currentBalance - amount)));
+                    }
                 } else {
                     source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.balance.remove.insufficient",
+                            ModConfigs.prefix,
                             profile.getName(),
                             currentBalance));
                 }
             }
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.balance.remove.error", e.getMessage()));
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.balance.remove.error", ModConfigs.prefix, e.getMessage()));
             return 0;
         }
     }
@@ -89,14 +106,23 @@ public class Balance {
             double amount = DoubleArgumentType.getDouble(context, "amount");
 
             for (var profile : targets) {
-                SQLiteManager.setPlayerBalance(profile.getId().toString(), profile.getName(), amount);
+                DatabaseManager.setPlayerBalance(profile.getId().toString(), profile.getName(), amount);
                 source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.balance.set.success",
+                        ModConfigs.prefix,
                         profile.getName(),
                         amount), false);
+                Player target = source.getServer().getPlayerList().getPlayer(profile.getId());
+                if (target != null) {
+                    target.sendSystemMessage(Component.translatable("command.infinity_nexus_market.sqlite.balance.set.success_set",
+                            ModConfigs.prefix,
+                            amount,
+                            profile.getName(),
+                            (amount)));
+                }
             }
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.balance.set.error", e.getMessage()));
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.balance.set.error", ModConfigs.prefix, e.getMessage()));
             return 0;
         }
     }
@@ -109,7 +135,7 @@ public class Balance {
             int maxSales = IntegerArgumentType.getInteger(context, "maxSales");
 
             for (var profile : targets) {
-                SQLiteManager.setPlayerMaxSales(profile.getId().toString(), maxSales);
+                DatabaseManager.setPlayerMaxSales(profile.getId().toString(), maxSales);
                 source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.balance.set_max_sales.success",
                         profile.getName(),
                         maxSales), false);
@@ -127,8 +153,8 @@ public class Balance {
             var targets = GameProfileArgument.getGameProfiles(context, "target");
 
             for (var profile : targets) {
-                int maxSales = SQLiteManager.getPlayerMaxSales(profile.getId().toString());
-                int currentSales = SQLiteManager.getPlayerCurrentSalesCount(profile.getId().toString());
+                int maxSales = DatabaseManager.getPlayerMaxSales(profile.getId().toString());
+                int currentSales = DatabaseManager.getPlayerCurrentSalesCount(profile.getId().toString());
                 source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.balance.get_max_sales",
                         profile.getName(),
                         currentSales,
@@ -148,13 +174,14 @@ public class Balance {
             int amountToRemove = IntegerArgumentType.getInteger(context, "amount");
 
             for (var profile : targets) {
-                int currentMax = SQLiteManager.getPlayerMaxSales(profile.getId().toString());
+                int currentMax = DatabaseManager.getPlayerMaxSales(profile.getId().toString());
                 int newMax = Math.max(0, currentMax - amountToRemove); // Garante que não fique negativo
 
-                SQLiteManager.setPlayerMaxSales(profile.getId().toString(), newMax);
+                DatabaseManager.setPlayerMaxSales(profile.getId().toString(), newMax);
 
                 source.sendSuccess(() -> Component.translatable(
                         "command.infinity_nexus_market.sqlite.balance.remove_max_sales.success",
+                        ModConfigs.prefix,
                         amountToRemove,
                         profile.getName(),
                         newMax
@@ -164,6 +191,7 @@ public class Balance {
         } catch (Exception e) {
             source.sendFailure(Component.translatable(
                     "command.infinity_nexus_market.sqlite.balance.remove_max_sales.error",
+                    ModConfigs.prefix,
                     e.getMessage()
             ));
             return 0;
@@ -178,10 +206,10 @@ public class Balance {
             int amountToAdd = IntegerArgumentType.getInteger(context, "amount");
 
             for (var profile : targets) {
-                int currentMax = SQLiteManager.getPlayerMaxSales(profile.getId().toString());
+                int currentMax = DatabaseManager.getPlayerMaxSales(profile.getId().toString());
                 int newMax = currentMax + amountToAdd;
 
-                SQLiteManager.setPlayerMaxSales(profile.getId().toString(), newMax);
+                DatabaseManager.setPlayerMaxSales(profile.getId().toString(), newMax);
 
                 source.sendSuccess(() -> Component.translatable(
                         "command.infinity_nexus_market.sqlite.balance.add_max_sales.success",
@@ -194,6 +222,7 @@ public class Balance {
         } catch (Exception e) {
             source.sendFailure(Component.translatable(
                     "command.infinity_nexus_market.sqlite.balance.add_max_sales.error",
+                    ModConfigs.prefix,
                     e.getMessage()
             ));
             return 0;
