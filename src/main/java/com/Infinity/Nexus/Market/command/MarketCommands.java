@@ -1,9 +1,11 @@
 package com.Infinity.Nexus.Market.command;
 
+import com.Infinity.Nexus.Market.command.response.Backup;
 import com.Infinity.Nexus.Market.command.response.Balance;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.GameProfileArgument;
@@ -16,6 +18,7 @@ public class MarketCommands {
                         .then(Commands.literal("balance")
                                 .then(Commands.argument("target", GameProfileArgument.gameProfile())
                                         .executes(Balance::see)  // /market balance <target>
+                                        .requires(source -> source.hasPermission(4))
                                         .then(Commands.literal("set")
                                                 .then(Commands.argument("amount", DoubleArgumentType.doubleArg(0))
                                                         .executes(Balance::set)))  // /market balance <target> set <amount>
@@ -27,6 +30,7 @@ public class MarketCommands {
                                                         .executes(Balance::remove)))))  // /market balance <target> remove <amount>
 
                         // Comandos de limite de vendas (/market salesLimit) - separado do balance
+                        .requires(source -> source.hasPermission(4))
                         .then(Commands.literal("salesLimit")
                                 .then(Commands.argument("target", GameProfileArgument.gameProfile())
                                         .executes(Balance::getMaxSales)  // /market salesLimit <target>

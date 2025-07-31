@@ -1,7 +1,6 @@
 package com.Infinity.Nexus.Market.utils;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
-import net.minecraft.server.level.ServerLevel;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -14,7 +13,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 public class BackupManager {
-    public static void backupAll(ServerLevel level, Path backupDir) {
+    public static void backupAll(Path backupDir) {
         try {
             if (!Files.exists(backupDir)) {
                 Files.createDirectories(backupDir);
@@ -28,8 +27,8 @@ public class BackupManager {
             for (int i = 5; i < backups.size(); i++) {
                 try { Files.deleteIfExists(backups.get(i)); } catch (Exception ignored) {}
             }
-            
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy-HH:mm")).replace("-", "_").replace("/", "-").replace(":", "-");
             Path zipPath = backupDir.resolve("market_backup_" + timestamp + ".zip");
             
             // Caminho da database SQLite
@@ -60,7 +59,7 @@ public class BackupManager {
                     "Servidor: %s",
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")),
                     Files.size(dbPath),
-                    level.getServer().getMotd()
+                    InfinityNexusMarket.serverLevel.getServer().getMotd()
                 );
                 zos.write(metadata.getBytes());
                 zos.closeEntry();

@@ -1,9 +1,9 @@
 package com.Infinity.Nexus.Market.screen.market;
 
 import com.Infinity.Nexus.Market.block.entity.MarketBlockEntity;
-import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.screen.BaseAbstractContainerMenu;
 import com.Infinity.Nexus.Market.screen.ModMenuTypes;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Inventory;

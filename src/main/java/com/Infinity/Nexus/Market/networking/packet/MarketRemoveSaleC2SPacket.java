@@ -10,7 +10,6 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -37,7 +36,7 @@ public record MarketRemoveSaleC2SPacket(UUID transactionId) implements CustomPac
             if (player == null) return;
 
             // Busca a venda diretamente no SQLiteManager
-            DatabaseManager.MarketItemEntry saleEntry = DatabaseManager.getAllPlayerSales().stream()
+            DatabaseManager.MarketItemEntry saleEntry = DatabaseManager.getAllMarketItems().stream()
                     .filter(e -> e.entryId.equals(packet.transactionId().toString()))
                     .findFirst()
                     .orElse(null);
@@ -48,7 +47,7 @@ public record MarketRemoveSaleC2SPacket(UUID transactionId) implements CustomPac
             }
 
             // Verifica se o jogador é o vendedor
-            if (!player.getUUID().toString().equals(saleEntry.sellerUUID) || !player.isCreative()) {
+            if (!player.isCreative() && !saleEntry.sellerUUID.equals(player.getUUID().toString())) {
                 player.displayClientMessage(Component.translatable("message.infinity_nexus_market.not_seller", ModConfigs.prefix), false);
                 return;
             }
@@ -61,7 +60,7 @@ public record MarketRemoveSaleC2SPacket(UUID transactionId) implements CustomPac
             }
 
             // Devolve o item ao jogador
-            ItemStack item = DatabaseManager.deserializeItemStack(saleEntry.itemNbt, ((ServerPlayer) context.player()).serverLevel());
+            ItemStack item = DatabaseManager.deserializeItemStack(saleEntry.itemNbt);
             if (!item.isEmpty()) {
                 player.getInventory().placeItemBackInInventory(item.copy());
             }

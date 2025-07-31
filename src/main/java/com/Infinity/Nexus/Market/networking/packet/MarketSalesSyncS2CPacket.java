@@ -1,14 +1,13 @@
 package com.Infinity.Nexus.Market.networking.packet;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
-import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.screen.market.MarketScreen;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -36,7 +35,6 @@ public record MarketSalesSyncS2CPacket(List<SaleEntryDTO> sales) implements Cust
 
     public static void handle(MarketSalesSyncS2CPacket packet, IPayloadContext context) {
         context.enqueueWork(() -> {
-            System.out.println("MarketSalesSyncS2CPacket: Recebido pacote com " + packet.sales().size() + " vendas");
             MarketScreen.setClientSales(packet.sales());
         });
     }
@@ -87,16 +85,12 @@ public record MarketSalesSyncS2CPacket(List<SaleEntryDTO> sales) implements Cust
     }
 
     // Novo método para converter MarketItemEntry para SaleEntryDTO
-    public static List<SaleEntryDTO> fromMarketItems(List<DatabaseManager.MarketItemEntry> marketItems, ServerLevel level) {
-        System.out.println("MarketSalesSyncS2CPacket: Processando " + marketItems.size() + " itens do mercado");
+    public static List<SaleEntryDTO> fromMarketItems(List<DatabaseManager.MarketItemEntry> marketItems) {
 
         List<SaleEntryDTO> result = new ArrayList<>();
         for (DatabaseManager.MarketItemEntry entry : marketItems) {
             // Desserializa o ItemStack do NBT
-            ItemStack item = DatabaseManager.deserializeItemStack(entry.itemNbt, level);
-
-            System.out.println("MarketSalesSyncS2CPacket: Verificando item - tipo: " + entry.type +
-                    ", item: " + (item != null ? item.getItem().getDescriptionId() : "null"));
+            ItemStack item = DatabaseManager.deserializeItemStack(entry.itemNbt);
 
             if (item != null && !item.isEmpty() && item.getCount() > 0) {
                 result.add(new SaleEntryDTO(
@@ -108,13 +102,8 @@ public record MarketSalesSyncS2CPacket(List<SaleEntryDTO> sales) implements Cust
                         entry.currentPrice,
                         entry.createdAt
                 ));
-                System.out.println("MarketSalesSyncS2CPacket: Item adicionado ao pacote - tipo: " + entry.type);
-            } else {
-                System.out.println("MarketSalesSyncS2CPacket: Item filtrado (item inválido)");
             }
         }
-
-        System.out.println("MarketSalesSyncS2CPacket: Total de itens no pacote: " + result.size());
         return result;
     }
 }

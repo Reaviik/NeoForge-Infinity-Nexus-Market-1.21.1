@@ -2,8 +2,8 @@ package com.Infinity.Nexus.Market.block.entity;
 
 import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.itemStackHandler.RestrictedItemStackHandler;
-import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.screen.seller.VendingMenu;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.utils.ItemStackHandlerUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -37,6 +37,9 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
     private static final Map<String, Item> ITEM_CACHE = new HashMap<>();
     private static final int MANUAL_SLOT = 0;
     private static final int AUTO_SLOT = 1;
+    private static final String LOG_PREFIX = "[VendingMachine] ";
+    private static final boolean DEBUG_MODE = false;
+
     private int progress = 0;
     private int maxProgress = ModConfigs.vendingTicksPerOperation;
 
@@ -136,7 +139,10 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
 
     public void tick(Level pLevel, BlockPos pPos, BlockState pState) {
         if (pLevel.isClientSide) return;
+        //if (getEnergyStored() < ModConfigs.vendingEnergyPerOperation) return;
+
         if (autoEnabled && autoMinAmount > 0 && autoPrice > 0) {
+            //extractEnergy(ModConfigs.vendingEnergyPerOperation, false);
             autoPostSaleOnMarket();
         }
     }
@@ -168,129 +174,132 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
         return false;
     }
 
-    public void postManualSaleToMarket(Player player, double price) {
+    public synchronized void postManualSaleToMarket(Player player, double price) {
         ItemStack item = itemHandler.getStackInSlot(MANUAL_SLOT).copy();
         boolean success = postSaleOnMarketBase(player, MANUAL_SLOT, price, false);
 
-        if (success && player instanceof ServerPlayer serverPlayer) {
-            if (!item.isEmpty() && !item.is(net.minecraft.world.item.Items.AIR) && item.getCount() > 0) {
-                Component itemComponent = ComponentUtils.wrapInSquareBrackets(item.getHoverName())
-                        .withStyle(style -> style.withColor(ChatFormatting.AQUA)
-                                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ITEM, new HoverEvent.ItemStackInfo(item))));
-                Component priceComponent = Component.literal(String.format("%.2f", price)).withStyle(ChatFormatting.GOLD);
-                Component msg = Component.translatable(
-                        "message.infinity_nexus_market.sell_success_item",
-                        ModConfigs.prefix,
-                        item.getCount(),
-                        itemComponent,
-                        priceComponent
-                );
-                serverPlayer.displayClientMessage(msg, false);
-            }
-        } else if (!success && player instanceof ServerPlayer serverPlayer) {
-            serverPlayer.displayClientMessage(Component.translatable("message.infinity_nexus_market.sell_fail", ModConfigs.prefix), false);
+        if (success) {
+            notifySaleSuccess(player, item, item.getCount(), price);
+        } else if (player instanceof ServerPlayer sp) {
+            sp.displayClientMessage(Component.translatable("message.infinity_nexus_market.sell_fail", ModConfigs.prefix), false);
         }
-
     }
 
     private boolean postSaleOnMarketBase(@Nullable Player player, int slot, double preco, boolean notificar) {
-        if (owner == null) {
-            return false;
-        }
-
-        if (!(level instanceof ServerLevel serverLevel)) {
+        if (owner == null || !(level instanceof ServerLevel serverLevel)) {
             return false;
         }
 
         ItemStack item = itemHandler.getStackInSlot(slot);
-        int quantidade = item.getCount();
-
-        if (item.isEmpty() || quantidade <= 0) return false;
-        if (isBlacklisted(item)) {
-            if (player instanceof ServerPlayer sp) {
-                sp.displayClientMessage(Component.translatable("message.infinity_nexus_market.blacklist_item", ModConfigs.prefix), true);
-            }
-            return false;
-        }
-
-        // Verifica o limite de vendas para jogadores normais (não server)
         UUID sellerUUID = UUID.fromString(owner);
         boolean isServerItem = owner.equals(SERVER_UUID.toString());
 
-        if (!isServerItem) {
-            // Verifica se o jogador pode adicionar mais vendas
-            if (!DatabaseManager.canPlayerAddMoreSales(sellerUUID.toString())) {
-                int currentSales = DatabaseManager.getPlayerCurrentSalesCount(sellerUUID.toString());
-                int maxSales = DatabaseManager.getPlayerMaxSales(sellerUUID.toString());
-
-                if (player instanceof ServerPlayer sp) {
-                    Component msg = Component.translatable(
-                            "message.infinity_nexus_market.sell_limit_reached",
-                            ModConfigs.prefix,
-                            currentSales,
-                            maxSales
-                    ).withStyle(ChatFormatting.RED);
-                    sp.displayClientMessage(msg, false);
-                }
-                return false;
-            }
+        if (!validateSale(player, item, sellerUUID, isServerItem)) {
+            return false;
         }
 
-        String sellerName = ownerName;
-        if (sellerName == null || sellerName.isEmpty()) {
-            if (!isServerItem) {
-                ServerPlayer ownerPlayer = serverLevel.getServer().getPlayerList().getPlayer(sellerUUID);
-                sellerName = ownerPlayer != null ? ownerPlayer.getName().getString() : "Unknown";
-            } else {
-                sellerName = "Server";
-            }
+        String sellerName = resolveSellerName(sellerUUID, isServerItem);
+        if (sellerName == null) return false;
+
+        processSale(item, preco, sellerUUID, sellerName, isServerItem);
+
+        if (notificar && !isServerItem) {
+            notifyOwnerIfOnline(sellerUUID, item, item.getCount(), preco);
         }
 
+        completeSaleTransaction(slot, item.getCount());
+        return true;
+    }
+
+    private boolean validateSale(Player player, ItemStack item, UUID sellerUUID, boolean isServerItem) {
+        if (item.isEmpty()) return false;
+        if (isBlacklisted(item)) {
+            notifyPlayer(player, "message.infinity_nexus_market.blacklist_item");
+            return false;
+        }
+        if (!isServerItem && !DatabaseManager.canPlayerAddMoreSales(sellerUUID.toString())) {
+            notifySaleLimitReached(player, sellerUUID.toString());
+            return false;
+        }
+        return true;
+    }
+
+    private String resolveSellerName(UUID sellerUUID, boolean isServerItem) {
+        if (ownerName != null && !ownerName.isEmpty()) {
+            return ownerName;
+        }
+        return isServerItem ? "Server" : DatabaseManager.getSellerNameByEntryUUID(sellerUUID.toString());
+    }
+
+    private void processSale(ItemStack item, double preco, UUID sellerUUID, String sellerName,
+                             boolean isServerItem) {
         if (isServerItem) {
             DatabaseManager.addOrUpdateServerItem(
                     UUID.randomUUID().toString(),
                     item.copy(),
                     preco,
-                    preco,
-                    serverLevel
+                    preco
             );
         } else {
             DatabaseManager.addPlayerSale(
                     sellerUUID.toString(),
                     sellerName,
                     item.copy(),
-                    quantidade,
-                    preco,
-                    serverLevel
+                    item.getCount(),
+                    preco
             );
-
-            // Notifica o vendedor
-            if (notificar) {
-                ServerPlayer ownerPlayer = serverLevel.getServer().getPlayerList().getPlayer(sellerUUID);
-                if (ownerPlayer != null) {
-                    Component itemComponent = ComponentUtils.wrapInSquareBrackets(item.getHoverName())
-                            .withStyle(style -> style.withColor(ChatFormatting.AQUA)
-                                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ITEM,
-                                            new HoverEvent.ItemStackInfo(item))));
-                    Component priceComponent = Component.translatable("gui.infinity_nexus_market.tooltip.price_value",
-                            String.format("%.2f", preco)).withStyle(ChatFormatting.GOLD);
-                    Component msg = Component.translatable(
-                            "message.infinity_nexus_market.sell_success_item",
-                            ModConfigs.prefix, quantidade, itemComponent, priceComponent);
-                    ownerPlayer.displayClientMessage(msg, false);
-                }
-            }
         }
+    }
 
-        // Remove o item do slot
+    private void notifyOwnerIfOnline(UUID sellerUUID, ItemStack item, int quantidade, double preco) {
+        if (level.getServer() == null) return;
+
+        ServerPlayer ownerPlayer = level.getServer().getPlayerList().getPlayer(sellerUUID);
+        if (ownerPlayer != null) {
+            notifySaleSuccess(ownerPlayer, item, quantidade, preco);
+        }
+    }
+
+    private void completeSaleTransaction(int slot, int quantidade) {
         ItemStackHandlerUtils.extractItem(slot, quantidade, false, itemHandler);
         setChanged();
 
         if (!level.isClientSide) {
             level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 3);
         }
+    }
 
-        return true;
+    private void notifySaleSuccess(Player player, ItemStack item, int quantidade, double preco) {
+        if (!(player instanceof ServerPlayer sp)) return;
+
+        Component itemComponent = ComponentUtils.wrapInSquareBrackets(item.getHoverName())
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA)
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ITEM,
+                                new HoverEvent.ItemStackInfo(item))));
+        Component priceComponent = Component.translatable("gui.infinity_nexus_market.tooltip.price_value",
+                String.format("%.2f", preco)).withStyle(ChatFormatting.GOLD);
+        Component msg = Component.translatable(
+                "message.infinity_nexus_market.sell_success_item",
+                ModConfigs.prefix, quantidade, itemComponent, priceComponent);
+        sp.displayClientMessage(msg, false);
+    }
+
+    private void notifyPlayer(Player player, String messageKey) {
+        if (player instanceof ServerPlayer sp) {
+            sp.displayClientMessage(Component.translatable(messageKey, ModConfigs.prefix), true);
+        }
+    }
+
+    private void notifySaleLimitReached(Player player, String sellerUUID) {
+        if (player instanceof ServerPlayer sp) {
+            int currentSales = DatabaseManager.getPlayerCurrentSalesCount(sellerUUID);
+            int maxSales = DatabaseManager.getPlayerMaxSales(sellerUUID);
+            Component msg = Component.translatable(
+                    "message.infinity_nexus_market.sell_limit_reached",
+                    ModConfigs.prefix, currentSales, maxSales
+            ).withStyle(ChatFormatting.RED);
+            sp.displayClientMessage(msg, false);
+        }
     }
 
     @Override
@@ -301,5 +310,12 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
             return;
         }
         super.setOwner(player);
+    }
+
+    private void debugLog(String message) {
+        if (DEBUG_MODE && level != null && !level.isClientSide) {
+            level.getServer().getPlayerList().broadcastSystemMessage(
+                    Component.literal(LOG_PREFIX + message), false);
+        }
     }
 }

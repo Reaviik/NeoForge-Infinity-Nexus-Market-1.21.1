@@ -2,7 +2,6 @@ package com.Infinity.Nexus.Market.component;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
 import com.google.common.base.Suppliers;
-import com.mojang.serialization.Codec;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.ItemStack;

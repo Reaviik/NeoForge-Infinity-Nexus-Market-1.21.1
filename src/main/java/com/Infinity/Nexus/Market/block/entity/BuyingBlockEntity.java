@@ -1,5 +1,6 @@
 package com.Infinity.Nexus.Market.block.entity;
 
+import com.Infinity.Nexus.Market.InfinityNexusMarket;
 import com.Infinity.Nexus.Market.component.MarketDataComponents;
 import com.Infinity.Nexus.Market.component.TicketItemComponent;
 import com.Infinity.Nexus.Market.config.ModConfigs;
@@ -135,7 +136,11 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
     public void tick(Level pLevel, BlockPos pPos, BlockState pState) {
         if (pLevel.isClientSide) return;
 
-        //if (!autoEnabled || getEnergyStored() < ModConfigs.buyingEnergyPerOperation) {
+        if (!autoEnabled) {
+            return;
+        }
+
+        //if(getEnergyStored() < ModConfigs.buyingTicksPerOperation){
         //    return;
         //}
 
@@ -216,15 +221,24 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
         int quantity = autoMinAmount != 0 ? autoMinAmount : itemComponent.count();
         quantity = calculateAvailableQuantity(quantity);
 
-        DatabaseManager.MarketItemEntry entry = findMarketEntry(itemComponent, price, serverLevel);
+        DatabaseManager.MarketItemEntry entry = findMarketEntry(itemComponent, price);
+
         if (entry == null) {
-            if (!auto && player != null) {
+            if (autoNotify && player != null) {
                 player.displayClientMessage(Component.translatable("message.infinity_nexus_market.item_not_found", ModConfigs.prefix), false);
             }
             return;
         }
 
-        ItemStack saleItem = DatabaseManager.deserializeItemStack(entry.itemNbt, serverLevel);
+
+        if (entry.sellerUUID.equals(transactionPlayerUUID)) {
+            if (autoNotify && player != null) {
+                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.cant_buy_own_item", ModConfigs.prefix), false);
+            }
+            return;
+        }
+
+        ItemStack saleItem = DatabaseManager.deserializeItemStack(entry.itemNbt);
         int saleQuantity = entry.quantity;
         quantity = Math.min(quantity, saleQuantity);
 
@@ -233,16 +247,16 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
             return;
         }
 
-        updateMarketEntry(entry, quantity, saleItem, saleQuantity, serverLevel);
+        updateMarketEntry(entry, quantity, saleItem, saleQuantity);
         deliverItems(saleItem, quantity);
         notifyOwnerIfNeeded(serverLevel, saleItem, quantity, totalCost);
     }
 
     private boolean validateTransaction(ServerPlayer player, TicketItemComponent itemComponent, boolean auto) {
         if (itemComponent.price() <= 0 || itemComponent.toItemStack().isEmpty()) {
-            if (!auto) {
+            if (!auto && autoNotify) {
                 player.displayClientMessage(
-                        Component.translatable("message.infinity_nexus_market.invalid_ticket"), false);
+                        Component.translatable("message.infinity_nexus_market.invalid_ticket", ModConfigs.prefix), false);
             }
             return false;
         }
@@ -256,19 +270,19 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
         return Math.min(desiredQuantity, spaceInSlot);
     }
 
-    private DatabaseManager.MarketItemEntry findMarketEntry(TicketItemComponent itemComponent, double price, ServerLevel serverLevel) {
-        String serializedItem = DatabaseManager.serializeItemStack(itemComponent.toItemStack(), serverLevel);
-        if (lastFoundEntry != null &&
-                lastFoundEntry.itemNbt.equals(serializedItem) &&
-                lastFoundEntry.currentPrice == price) {
+    private DatabaseManager.MarketItemEntry findMarketEntry(TicketItemComponent itemComponent, double price) {
+        String serializedItem = DatabaseManager.serializeItemStack(itemComponent.toItemStack());
+
+        if (lastFoundEntry != null && lastFoundEntry.itemNbt.equals(serializedItem) && lastFoundEntry.currentPrice <= price) {
             return lastFoundEntry;
         }
 
-        DatabaseManager.MarketItemEntry entry = DatabaseManager.getMarketItemByStackAndPrice(itemComponent.toItemStack(), price, serverLevel);
+        DatabaseManager.MarketItemEntry entry = DatabaseManager.getMarketItemByStackAndPrice(itemComponent.toItemStack(), price);
 
         if (entry != null) {
             lastFoundEntry = entry;
         }
+
 
         return entry;
     }
@@ -277,7 +291,7 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
         double buyerBalance = DatabaseManager.getPlayerBalance(buyerUUID);
 
         if (buyerBalance < totalCost) {
-            if (!auto && player != null) {
+            if (!auto && player != null && autoNotify) {
                 player.displayClientMessage(Component.translatable("message.infinity_nexus_market.insufficient_balance", ModConfigs.prefix), false);
             }
             return false;
@@ -292,7 +306,7 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
     }
 
     private void updateMarketEntry(DatabaseManager.MarketItemEntry entry, int quantity,
-                                   ItemStack saleItem, int saleQuantity, ServerLevel serverLevel) {
+                                   ItemStack saleItem, int saleQuantity) {
         if ("player".equals(entry.type)) {
             if (quantity >= saleQuantity) {
                 DatabaseManager.removeMarketItem(entry.entryId);
@@ -312,8 +326,7 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
                         updatedItem,
                         saleQuantity - quantity,
                         entry.basePrice,
-                        entry.currentPrice,
-                        serverLevel
+                        entry.currentPrice
                 );
             }
         }
@@ -369,8 +382,7 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
 
     private void debugLog(String message) {
         if (DEBUG_MODE && level != null && !level.isClientSide) {
-            level.getServer().getPlayerList().broadcastSystemMessage(
-                    Component.literal(LOG_PREFIX + message), false);
+            level.getServer().getPlayerList().broadcastSystemMessage(Component.literal(LOG_PREFIX + message), false);
         }
     }
 }

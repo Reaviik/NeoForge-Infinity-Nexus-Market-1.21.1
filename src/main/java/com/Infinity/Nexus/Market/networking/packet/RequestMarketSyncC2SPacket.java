@@ -1,8 +1,8 @@
 package com.Infinity.Nexus.Market.networking.packet;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
-import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.networking.ModMessages;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -37,7 +37,7 @@ public record RequestMarketSyncC2SPacket() implements CustomPacketPayload {
 
             // Cria e envia o pacote de sincronização
             var syncPacket = new MarketSalesSyncS2CPacket(
-                    MarketSalesSyncS2CPacket.fromMarketItems(marketItems, serverLevel)
+                    MarketSalesSyncS2CPacket.fromMarketItems(marketItems)
             );
             ModMessages.sendToPlayer(syncPacket, player);
         });

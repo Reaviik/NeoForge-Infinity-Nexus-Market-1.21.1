@@ -5,6 +5,7 @@ import com.Infinity.Nexus.Market.component.MarketDataComponents;
 import com.Infinity.Nexus.Market.component.TicketItemComponent;
 import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.item.ModItemsMarket;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -12,7 +13,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record CopyToTicketC2SPacket(ItemStack item, int quantity, double price, String sellerName, String entryId)
@@ -26,7 +26,7 @@ public record CopyToTicketC2SPacket(ItemStack item, int quantity, double price, 
             StreamCodec.of(
                     (buf, packet) -> {
                         ItemStack.STREAM_CODEC.encode(buf, packet.item());
-                        ByteBufCodecs.INT.encode(buf, packet.quantity());
+                        ByteBufCodecs.INT.encode(buf, 1);
                         ByteBufCodecs.DOUBLE.encode(buf, packet.price());
                         ByteBufCodecs.STRING_UTF8.encode(buf, packet.sellerName() == null ? "" : packet.sellerName());
                         ByteBufCodecs.STRING_UTF8.encode(buf, packet.entryId() == null ? "" : packet.entryId());
@@ -50,8 +50,6 @@ public record CopyToTicketC2SPacket(ItemStack item, int quantity, double price, 
             ServerPlayer player = (ServerPlayer) context.player();
             if (player == null) return;
 
-            Level level = player.level();
-
             // Procura o primeiro ticket sem componente
             for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
                 ItemStack stack = player.getInventory().getItem(i);
@@ -59,7 +57,7 @@ public record CopyToTicketC2SPacket(ItemStack item, int quantity, double price, 
                     // Adiciona o componente
                     stack.set(MarketDataComponents.TICKET_ITEM.get(),
                             new TicketItemComponent(
-                                    net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(packet.item().getItem()).toString(),
+                                    DatabaseManager.serializeItemStack(packet.item()),
                                     packet.quantity(),
                                     (int) packet.price(),
                                     packet.sellerName() == null ? "" : packet.sellerName(),

@@ -8,7 +8,6 @@ import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.utils.BackupManager;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -47,10 +46,9 @@ public class ModEvents {
         // Backup automático
         if (ModConfigs.backupEnabled && gameTime - lastBackupTick >= ModConfigs.backupIntervalMin * 20L * 60L) {
             lastBackupTick = gameTime;
-            ServerLevel overworld = server.getLevel(net.minecraft.world.level.Level.OVERWORLD);
-            if (overworld != null) {
+            if (InfinityNexusMarket.serverLevel != null) {
                 try {
-                    BackupManager.backupAll(overworld, Paths.get("backups"));
+                    BackupManager.backupAll(Paths.get("backups"));
                 } catch (Exception e) {
                     InfinityNexusMarket.LOGGER.error("Falha ao criar backup: " + e.getMessage());
                 }

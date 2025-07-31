@@ -42,7 +42,7 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
             ServerPlayer player = (ServerPlayer) context.player();
             if (player == null) return;
 
-            if (!(player.level() instanceof ServerLevel serverLevel)) return;
+            if (!(player.level() instanceof ServerLevel)) return;
 
             // Busca o item no market
             DatabaseManager.MarketItemEntry marketEntry = DatabaseManager.getAllMarketItems().stream()
@@ -55,8 +55,13 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
                 return;
             }
 
+            if(marketEntry.sellerUUID.equals(player.getUUID().toString())){
+                player.displayClientMessage(Component.translatable("message.infinity_nexus_market.cant_buy_own_item", ModConfigs.prefix), false);
+                return;
+            }
+
             // Desserializa o ItemStack
-            ItemStack itemStack = DatabaseManager.deserializeItemStack(marketEntry.itemNbt, serverLevel);
+            ItemStack itemStack = DatabaseManager.deserializeItemStack(marketEntry.itemNbt);
             if (itemStack.isEmpty()) {
                 player.displayClientMessage(Component.translatable("message.infinity_nexus_market.invalid_item", ModConfigs.prefix), false);
                 return;
@@ -92,7 +97,7 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
             processTransaction(player, marketEntry, quantityToBuy, cost, isServerItem);
 
             if (!isServerItem) {
-                updatePlayerSale(marketEntry, quantityToBuy, serverLevel);
+                updatePlayerSale(marketEntry, quantityToBuy);
             }
 
             deliverItem(player, itemStack, quantityToBuy);
@@ -143,7 +148,7 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
         }
     }
 
-    private static void updatePlayerSale(DatabaseManager.MarketItemEntry entry, int quantityBought, ServerLevel serverLevel) {
+    private static void updatePlayerSale(DatabaseManager.MarketItemEntry entry, int quantityBought) {
         if(entry.type.equals("server")){
             return;
         }
@@ -156,11 +161,10 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
                     entry.type,
                     entry.sellerUUID,
                     entry.sellerName,
-                    DatabaseManager.deserializeItemStack(entry.itemNbt, serverLevel),
+                    DatabaseManager.deserializeItemStack(entry.itemNbt),
                     entry.quantity - quantityBought,
                     entry.basePrice,
-                    entry.currentPrice,
-                    serverLevel
+                    entry.currentPrice
             );
 
             DatabaseManager.addSalesHistory(

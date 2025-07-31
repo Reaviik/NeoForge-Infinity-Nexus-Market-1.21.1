@@ -30,10 +30,11 @@ public class Ticket extends Item {
             if (itemStack.has(MarketDataComponents.TICKET_ITEM.get())) {
                 itemStack.remove(MarketDataComponents.TICKET_ITEM.get());
             }
-
+            ItemStack ticketStack = player.getItemInHand(inverseHand).copy();
+            ticketStack.setCount(1);
+            String serializedTicket = DatabaseManager.serializeItemStack(ticketStack);
             // Adicionar novo
-            itemStack.set(MarketDataComponents.TICKET_ITEM.get(),
-                    TicketItemComponent.fromItemStack(player.getItemInHand(inverseHand), 0, Component.translatable("item.infinity_nexus_market.ticket_anyone").getString(), "")
+            itemStack.set(MarketDataComponents.TICKET_ITEM.get(), TicketItemComponent.fromItemStack(serializedTicket, 0, Component.translatable("item.infinity_nexus_market.ticket_anyone").getString(), "")
             );
         }
         return super.use(level, player, usedHand);

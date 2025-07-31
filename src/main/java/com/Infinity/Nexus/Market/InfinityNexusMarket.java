@@ -5,31 +5,29 @@ import com.Infinity.Nexus.Market.block.entity.ModBlockEntities;
 import com.Infinity.Nexus.Market.component.MarketDataComponents;
 import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.item.ModItemsMarket;
-import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.networking.ModMessages;
 import com.Infinity.Nexus.Market.screen.ModMenuTypes;
 import com.Infinity.Nexus.Market.screen.buying.BuyingScreen;
 import com.Infinity.Nexus.Market.screen.market.MarketScreen;
 import com.Infinity.Nexus.Market.screen.seller.VendingScreen;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.tab.ModTab;
 import com.mojang.logging.LogUtils;
+import net.minecraft.server.level.ServerLevel;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
-import net.neoforged.neoforge.event.server.ServerStartedEvent;
-import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import org.slf4j.Logger;
-
-import java.io.File;
 
 @Mod(InfinityNexusMarket.MOD_ID)
 public class InfinityNexusMarket {
     long time = System.currentTimeMillis();
     public static final String MOD_ID = "infinity_nexus_market";
     public static final Logger LOGGER = LogUtils.getLogger();
+    public static ServerLevel serverLevel;
 
     public InfinityNexusMarket(IEventBus modEventBus, ModContainer modContainer){
 

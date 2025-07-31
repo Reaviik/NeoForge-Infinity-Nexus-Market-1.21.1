@@ -1,9 +1,9 @@
 package com.Infinity.Nexus.Market.block.entity;
 
-import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.networking.ModMessages;
 import com.Infinity.Nexus.Market.networking.packet.MarketSalesSyncS2CPacket;
 import com.Infinity.Nexus.Market.screen.market.MarketMenu;
+import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -68,13 +68,13 @@ public class MarketBlockEntity extends BlockEntity implements MenuProvider {
     @Nullable
     @Override
     public AbstractContainerMenu createMenu(int pContainerId, Inventory pPlayerInventory, Player pPlayer) {
-        if (pPlayer instanceof ServerPlayer serverPlayer && level instanceof ServerLevel serverLevel) {
+        if (pPlayer instanceof ServerPlayer serverPlayer && level instanceof ServerLevel) {
             // Obtém as vendas diretamente do SQLiteManager
             List<DatabaseManager.MarketItemEntry> marketItems = DatabaseManager.getAllMarketItems();
 
             // Converte para DTOs e envia para o cliente
             var packet = new MarketSalesSyncS2CPacket(
-                    MarketSalesSyncS2CPacket.fromMarketItems(marketItems, serverLevel)
+                    MarketSalesSyncS2CPacket.fromMarketItems(marketItems)
             );
             ModMessages.sendToPlayer(packet, serverPlayer);
         }
