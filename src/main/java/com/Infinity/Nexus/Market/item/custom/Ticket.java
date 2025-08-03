@@ -23,19 +23,22 @@ public class Ticket extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
         InteractionHand inverseHand = usedHand == InteractionHand.OFF_HAND ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
-        if (!level.isClientSide() && player.isShiftKeyDown()) {
+        if (!level.isClientSide()) {
             ItemStack itemStack = player.getItemInHand(usedHand);
-
-            // Remover
-            if (itemStack.has(MarketDataComponents.TICKET_ITEM.get())) {
-                itemStack.remove(MarketDataComponents.TICKET_ITEM.get());
-            }
             ItemStack ticketStack = player.getItemInHand(inverseHand).copy();
+
+            if (itemStack.has(MarketDataComponents.TICKET_ITEM.get())) {
+                TicketItemComponent ticket = itemStack.get(MarketDataComponents.TICKET_ITEM.get());
+                if(player.isShiftKeyDown()) {
+                    itemStack.remove(MarketDataComponents.TICKET_ITEM.get());
+                    return InteractionResultHolder.success(itemStack);
+                }
+                itemStack.set(MarketDataComponents.TICKET_ITEM.get(), TicketItemComponent.fromItemStack(ticket.item_stack_nbt(), ticket.price(), ticket.sellerName(), "", !ticket.randomSeller()));
+                return InteractionResultHolder.success(itemStack);
+            }
             ticketStack.setCount(1);
             String serializedTicket = DatabaseManager.serializeItemStack(ticketStack);
-            // Adicionar novo
-            itemStack.set(MarketDataComponents.TICKET_ITEM.get(), TicketItemComponent.fromItemStack(serializedTicket, 0, Component.translatable("item.infinity_nexus_market.ticket_anyone").getString(), "")
-            );
+            itemStack.set(MarketDataComponents.TICKET_ITEM.get(), TicketItemComponent.fromItemStack(serializedTicket, 0, Component.translatable("item.infinity_nexus_market.ticket_anyone").getString(), "", true));
         }
         return super.use(level, player, usedHand);
     }
@@ -57,13 +60,8 @@ public class Ticket extends Item {
             ItemStack ticketStack = ticket.toItemStack();
             components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_content",ticketStack.getCount(),ticketStack.getHoverName()));
             components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_price", ticket.price()));
-            String sellerName = ticket.sellerName();
-            if ((sellerName == null || sellerName.isEmpty()) && ticket.entryId() != null && !ticket.entryId().isEmpty()) {
-                // Busca o nome do vendedor na database market
-                sellerName = DatabaseManager.getSellerNameByEntryId(ticket.entryId());
-                if (sellerName == null || sellerName.isEmpty()) sellerName = "?";
-            }
-            components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_seller", sellerName));
+            components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_random_seller", ticket.randomSeller() ? "Yes" : "No"));
+            components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_seller", ticket.randomSeller() ? Component.translatable("item.infinity_nexus_market.ticket_anyone").getString() : ticket.sellerName()));
 
         } else {
             components.add(Component.translatable("tooltip.infinity_nexus_market.pressShift"));

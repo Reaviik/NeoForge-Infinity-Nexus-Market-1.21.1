@@ -4,6 +4,7 @@ import com.Infinity.Nexus.Market.InfinityNexusMarket;
 import com.google.common.base.Suppliers;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -25,7 +26,7 @@ public class MarketDataComponents {
 
     public static final Supplier<DataComponentType<TicketItemComponent>> TICKET_ITEM = register(
             "ticket_item",
-            () -> new TicketItemComponent("minecraft:air", 1, 0, "Unknown", UUID.randomUUID().toString()),
+            () -> new TicketItemComponent("minecraft:air", 1, 0, "Unknown", UUID.randomUUID().toString(), true),
             op -> op.persistent(TicketItemComponent.CODEC)
     );
 

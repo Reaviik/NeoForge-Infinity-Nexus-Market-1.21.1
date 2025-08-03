@@ -61,7 +61,8 @@ public record CopyToTicketC2SPacket(ItemStack item, int quantity, double price, 
                                     packet.quantity(),
                                     (int) packet.price(),
                                     packet.sellerName() == null ? "" : packet.sellerName(),
-                                    packet.entryId() == null ? "" : packet.entryId()
+                                    packet.entryId() == null ? "" : packet.entryId(),
+                                    false
                             )
                     );
                     player.displayClientMessage(

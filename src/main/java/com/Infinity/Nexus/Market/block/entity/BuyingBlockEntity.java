@@ -1,6 +1,7 @@
 package com.Infinity.Nexus.Market.block.entity;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
+import com.Infinity.Nexus.Market.block.custom.BaseMachineBlock;
 import com.Infinity.Nexus.Market.component.MarketDataComponents;
 import com.Infinity.Nexus.Market.component.TicketItemComponent;
 import com.Infinity.Nexus.Market.config.ModConfigs;
@@ -25,10 +26,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.bernie.geckolib.animatable.GeoBlockEntity;
+import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.UUID;
 
-public class BuyingBlockEntity extends AbstractMarketBlockEntity {
+public class BuyingBlockEntity extends AbstractMarketBlockEntity{
     private static final int TICKET_SLOT = 0;
     private static final int AUTO_SLOT = 1;
     private static final String LOG_PREFIX = "[BuyingMachine] ";
@@ -136,6 +139,11 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
     public void tick(Level pLevel, BlockPos pPos, BlockState pState) {
         if (pLevel.isClientSide) return;
 
+        if(progress < maxProgress) {
+            progress++;
+            return;
+        }
+
         if (!autoEnabled) {
             return;
         }
@@ -166,6 +174,8 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
         }
 
         processAutoBuy(itemComponent);
+        level.setBlock(getBlockPos(), getBlockState().setValue(BaseMachineBlock.WORK, true).setValue(BaseMachineBlock.PLACED, false), 3);
+        progress = 0;
     }
 
     private boolean slotAcceptItem(ItemStack itemStack) {
@@ -273,16 +283,25 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
     private DatabaseManager.MarketItemEntry findMarketEntry(TicketItemComponent itemComponent, double price) {
         String serializedItem = DatabaseManager.serializeItemStack(itemComponent.toItemStack());
 
-        if (lastFoundEntry != null && lastFoundEntry.itemNbt.equals(serializedItem) && lastFoundEntry.currentPrice <= price) {
-            return lastFoundEntry;
+        if (lastFoundEntry != null && lastFoundEntry.itemNbt.equals(serializedItem)) {
+            DatabaseManager.MarketItemEntry refreshedEntry = DatabaseManager.getMarketItemByEntryId(lastFoundEntry.entryId);
+            if (refreshedEntry != null && refreshedEntry.isActive && refreshedEntry.currentPrice <= price) {
+                return refreshedEntry;
+            }
+            lastFoundEntry = null;
         }
 
-        DatabaseManager.MarketItemEntry entry = DatabaseManager.getMarketItemByStackAndPrice(itemComponent.toItemStack(), price);
+        DatabaseManager.MarketItemEntry entry = DatabaseManager.getMarketItemByStackAndPrice(
+                itemComponent.toItemStack(),
+                price,
+                itemComponent.sellerName(),
+                itemComponent.randomSeller(),
+                ownerName
+        );
 
         if (entry != null) {
             lastFoundEntry = entry;
         }
-
 
         return entry;
     }
@@ -332,11 +351,11 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity {
         }
 
         DatabaseManager.addSalesHistory(
-                entry.entryId,
+                entry.itemNbt,
                 quantity,
                 entry.currentPrice,
                 entry.sellerUUID,
-                entry.type
+                entry.sellerName
         );
     }
 

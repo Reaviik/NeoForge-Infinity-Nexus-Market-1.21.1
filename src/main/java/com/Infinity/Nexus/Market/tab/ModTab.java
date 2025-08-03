@@ -22,9 +22,9 @@ public class ModTab {
                     .displayItems((pParameters, pOutput) -> {
                         //-------------------------//-------------------------//
                         //Machines
-                        pOutput.accept(new ItemStack(ModBlocksMarket.VENDING_MACHINE.get()));
-                        pOutput.accept(new ItemStack(ModBlocksMarket.BUYING_MACHINE.get()));
-                        pOutput.accept(new ItemStack(ModBlocksMarket.MARKET_MACHINE.get()));
+                        pOutput.accept(ModItemsMarket.VENDING_MACHINE.get());
+                        pOutput.accept(ModItemsMarket.BUYING_MACHINE.get());
+                        pOutput.accept(ModItemsMarket.MARKET_MACHINE.get());
                         //-------------------------//-------------------------//
                         //Items
                         pOutput.accept(new ItemStack(ModItemsMarket.TICKET.get()));

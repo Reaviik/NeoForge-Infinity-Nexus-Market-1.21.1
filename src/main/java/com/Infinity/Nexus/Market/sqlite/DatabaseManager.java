@@ -36,12 +36,22 @@ public class DatabaseManager {
                 return;
             }
 
-            // Testa a conexão e cria as tabelas
-            try (Connection conn = DriverManager.getConnection(DB_URL)) {
-                InfinityNexusMarket.LOGGER.info("Conectado ao banco SQLite: {}", DB_URL);
+            // Testa a conexão, configura WAL e cria as tabelas
+            try (Connection conn = DriverManager.getConnection(DB_URL);
+                 Statement stmt = conn.createStatement()) {
+
+                // Configurações de performance do SQLite
+                stmt.execute("PRAGMA journal_mode=WAL;");          // Habilita WAL (melhor para concorrência)
+                stmt.execute("PRAGMA synchronous=NORMAL;");        // Balanceamento entre segurança e performance
+                stmt.execute("PRAGMA cache_size=-10000;");         // 10MB de cache em RAM
+                stmt.execute("PRAGMA temp_store=MEMORY;");         // Usa RAM para temporários
+                stmt.execute("PRAGMA busy_timeout=5000;");         // Timeout de 5s para locks
+
+                InfinityNexusMarket.LOGGER.info("Conectado ao banco SQLite (WAL mode): {}", DB_URL);
                 createAllTables(conn);
                 isInitialized = true;
                 InfinityNexusMarket.LOGGER.info("Todas as tabelas criadas/verificadas com sucesso!");
+
             } catch (SQLException e) {
                 InfinityNexusMarket.LOGGER.error("Falha ao conectar ou criar tabelas no banco SQLite", e);
             }
@@ -50,7 +60,6 @@ public class DatabaseManager {
             InfinityNexusMarket.LOGGER.error("Erro durante inicialização do SQLite", e);
         }
     }
-
     private static void createAllTables(Connection conn) throws SQLException {
         // 1. Tabela de saldos dos jogadores (agora com estatísticas)
         String createPlayerBalances = "CREATE TABLE IF NOT EXISTS player_balances (" +
@@ -112,6 +121,14 @@ public class DatabaseManager {
     public static double getPlayerBalance(String uuid) {
         return getAllPlayerBalances().getOrDefault(UUID.fromString(uuid), 0.0);
     }
+    public static void addPlayerBalance(String uuid, String name, double amount) {
+        if (!isInitialized) initialize();
+        try {
+            double currentBalance = DatabaseManager.getPlayerBalance(uuid);
+            DatabaseManager.setPlayerBalance(uuid, name, currentBalance + amount);
+        } catch (Exception e) {
+        }
+    }
 
     public static void setPlayerBalance(String uuid, String playerName, double balance) {
         if (!isInitialized) initialize();
@@ -147,7 +164,7 @@ public class DatabaseManager {
         return balances;
     }
 
-    public static MarketItemEntry getMarketItemByStackAndPrice(ItemStack itemStack, double price) {
+    public static MarketItemEntry getMarketItemByStackAndPrice(ItemStack itemStack, double price, String sellerName, boolean randomSeller, String ownerName) {
         if (!isInitialized) initialize();
 
         if (getAllMarketItems().isEmpty()) {
@@ -160,17 +177,16 @@ public class DatabaseManager {
             return null;
         }
 
-        System.out.println("B3: " + itemNbt);
-
         return getAllMarketItems().stream()
                 .filter(entry -> entry != null)
-                .peek(entry -> System.out.println("Comparing: " + entry.itemNbt + " with " + itemNbt + " equals? " + entry.itemNbt.equals(itemNbt)))
                 .filter(entry -> entry.itemNbt.equals(itemNbt))
+                .filter(entry -> randomSeller ? !entry.sellerName.equals(ownerName) : (entry.sellerName.equals(sellerName) && !entry.sellerName.equals(ownerName)))
                 .filter(entry -> entry.currentPrice <= price)
                 .filter(entry -> entry.quantity >= 1)
                 .findFirst()
                 .orElse(null);
     }
+
 
     // ========== MÉTODOS UNIFICADOS PARA MARKET ITEMS ==========
 
@@ -198,21 +214,23 @@ public class DatabaseManager {
         if (!isInitialized) initialize();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             // Serializa o item para comparar NBT
-            String itemNbt = serializeItemStack(item);
+            ItemStack copy = item.copy();
+            copy.setCount(1);
+            String itemNbt = serializeItemStack(copy);
 
-            // Verifica se já existe um item ativo com o mesmo NBT
+            // Verifica se já existe um item ativo com o mesmo NBT E MESMO TIPO
             PreparedStatement checkStmt = conn.prepareStatement(
-                    "SELECT entry_id, type FROM market_items " +
-                            "WHERE item_stack_nbt = ? AND is_active = 1 LIMIT 1");
+                    "SELECT entry_id, quantity FROM market_items " +
+                            "WHERE item_stack_nbt = ? AND type = ? AND is_active = 1 LIMIT 1");
             checkStmt.setString(1, itemNbt);
+            checkStmt.setString(2, type);
             ResultSet rs = checkStmt.executeQuery();
 
             if (rs.next()) {
-                String existingType = rs.getString("type");
                 String existingEntryId = rs.getString("entry_id");
 
-                // Se for um item do servidor e já existir um igual, atualiza o preço
-                if ("server".equals(type) && "server".equals(existingType)) {
+                // Se for um item do servidor, atualiza o preço
+                if ("server".equals(type)) {
                     PreparedStatement updateStmt = conn.prepareStatement(
                             "UPDATE market_items SET base_price = ?, current_price = ?, last_updated = CURRENT_TIMESTAMP " +
                                     "WHERE entry_id = ?");
@@ -221,9 +239,9 @@ public class DatabaseManager {
                     updateStmt.setString(3, existingEntryId);
                     return updateStmt.executeUpdate() > 0;
                 }
-                // Se for um item de player com mesmo NBT, preço e vendedor, soma a quantidade
-                else if ("player".equals(type) && "player".equals(existingType)) {
-                    // Mesmo Vendedor + Mesmo preço = Merge
+                // Se for um item de player com mesmo vendedor e preço, soma a quantidade
+                else if ("player".equals(type)) {
+                    // Verifica se é do mesmo vendedor e mesmo preço
                     PreparedStatement checkPlayerStmt = conn.prepareStatement(
                             "SELECT entry_id, quantity FROM market_items " +
                                     "WHERE entry_id = ? AND seller_uuid = ? " +
@@ -246,11 +264,10 @@ public class DatabaseManager {
                 }
             }
 
-            // Nenhum item igual do mesmo venderdor encontrado, insere um novo
+            // Nenhum item igual encontrado ou não atende aos critérios de merge, insere novo
             String upsert = "INSERT INTO market_items " +
                     "(entry_id, type, seller_uuid, seller_name, item_stack_nbt, quantity, base_price, current_price, last_updated) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);";
-
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)";
 
             PreparedStatement pstmt = conn.prepareStatement(upsert);
             pstmt.setString(1, entryId);
@@ -258,7 +275,7 @@ public class DatabaseManager {
             pstmt.setString(3, "server".equals(type) ? SERVER_UUID.toString() : sellerUUID);
             pstmt.setString(4, "server".equals(type) ? "Server" : sellerName);
             pstmt.setString(5, itemNbt);
-            pstmt.setInt(6, "server".equals(type) ? 64 : 1);
+            pstmt.setInt(6, "server".equals(type) ? 64 : quantity);
             pstmt.setDouble(7, basePrice);
             pstmt.setDouble(8, currentPrice);
 
@@ -312,7 +329,7 @@ public class DatabaseManager {
     public static MarketItemEntry getMarketItemByEntryId(String entryId) {
         if (!isInitialized) initialize();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            String query = "SELECT * FROM market_items WHERE entry_id = ? LIMIT 1;";
+            String query = "SELECT * FROM market_items WHERE entry_id = ? AND is_active = 1 LIMIT 1;";
             PreparedStatement pstmt = conn.prepareStatement(query);
             pstmt.setString(1, entryId);
 
@@ -379,8 +396,7 @@ public class DatabaseManager {
         );
     }
 
-    public static boolean addOrUpdateServerItem(String entryId, ItemStack item,
-                                                double basePrice, double currentPrice) {
+    public static boolean addOrUpdateServerItem(String entryId, ItemStack item, double basePrice, double currentPrice) {
         return addOrUpdateMarketItem(
                 entryId,
                 "server",
@@ -664,10 +680,10 @@ public class DatabaseManager {
                             "WHERE item_stack_nbt LIKE ? AND type = 'server';");
             pstmt.setString(1, "%\"" + baseItemId + "\"%");
             ResultSet rs = pstmt.executeQuery();
-            return rs.next() ? rs.getDouble(1) : 10.0;
+            return rs.next() ? rs.getDouble(1) : 0;
         } catch (SQLException e) {
             InfinityNexusMarket.LOGGER.error("Erro ao buscar preço base", e);
-            return 10.0;
+            return 0;
         }
     }
     /**
@@ -691,7 +707,7 @@ public class DatabaseManager {
 
         } catch (SQLException e) {
             InfinityNexusMarket.LOGGER.error("Erro ao buscar preço atual", e);
-            return 10.0; // Valor padrão de fallback
+            return 0; // Valor padrão de fallback
         }
     }
 
@@ -756,10 +772,10 @@ public class DatabaseManager {
                             "WHERE item_stack_nbt = ? AND type = 'server' LIMIT 1;");
             pstmt.setString(1, itemNbt);
             ResultSet rs = pstmt.executeQuery();
-            return rs.next() ? rs.getDouble("base_price") : 10.0;
+            return rs.next() ? rs.getDouble("base_price") : 0;
         } catch (SQLException e) {
             InfinityNexusMarket.LOGGER.error("Erro ao buscar preço base", e);
-            return 10.0;
+            return 0;
         }
     }
 

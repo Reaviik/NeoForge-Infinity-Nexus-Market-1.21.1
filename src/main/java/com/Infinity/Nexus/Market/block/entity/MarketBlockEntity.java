@@ -1,5 +1,6 @@
 package com.Infinity.Nexus.Market.block.entity;
 
+import com.Infinity.Nexus.Market.itemStackHandler.RestrictedItemStackHandler;
 import com.Infinity.Nexus.Market.networking.ModMessages;
 import com.Infinity.Nexus.Market.networking.packet.MarketSalesSyncS2CPacket;
 import com.Infinity.Nexus.Market.screen.market.MarketMenu;
@@ -26,13 +27,18 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.UUID;
 
-public class MarketBlockEntity extends BlockEntity implements MenuProvider {
+public class MarketBlockEntity extends AbstractMarketBlockEntity {
     protected final ContainerData data;
     private String owner;
 
     public MarketBlockEntity(BlockPos pPos, BlockState pBlockState) {
-        super(ModBlockEntities.MARKET_MACHINE_BE.get(), pPos, pBlockState);
+        super(ModBlockEntities.MARKET_MACHINE_BE.get(), pPos, pBlockState, 0);
         this.data = createContainerData();
+    }
+
+    @Override
+    protected RestrictedItemStackHandler createItemHandler(int slots) {
+        return new RestrictedItemStackHandler(slots);
     }
 
     protected ContainerData createContainerData() {
@@ -61,8 +67,18 @@ public class MarketBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
+    protected int getEnergyCapacity() {
+        return 0;
+    }
+
+    @Override
+    protected int getEnergyTransfer() {
+        return 0;
+    }
+
+    @Override
     public Component getDisplayName() {
-        return Component.translatable("block.infinity_nexus_market.buying_machine");
+        return Component.translatable("block.infinity_nexus_market.market_machine");
     }
 
     @Nullable

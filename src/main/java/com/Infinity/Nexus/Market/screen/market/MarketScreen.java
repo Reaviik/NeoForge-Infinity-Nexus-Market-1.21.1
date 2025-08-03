@@ -550,7 +550,7 @@ public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
 
                 guiGraphics.renderItem(entry.item, entryX + 1, entryY + 1);
 
-                String quantityText = String.valueOf(Math.min(entry.quantity, 64));
+                String quantityText = String.valueOf(Math.min(entry.quantity, 64) == 64 ? "+64" : entry.quantity);
                 int textWidth = this.font.width(quantityText);
                 int xPos = entryX + 13 - (textWidth - this.font.width("1"));
                 guiGraphics.pose().pushPose();

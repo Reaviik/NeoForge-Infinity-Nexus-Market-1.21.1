@@ -9,6 +9,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -18,61 +20,81 @@ public class BackupManager {
             if (!Files.exists(backupDir)) {
                 Files.createDirectories(backupDir);
             }
-            
+
             // Limpar backups antigos (manter só os 5 mais recentes)
-            java.util.List<Path> backups = Files.list(backupDir)
-                    .filter(p -> p.getFileName().toString().startsWith("market_backup_") && p.getFileName().toString().endsWith(".zip"))
-                    .sorted((a, b) -> b.getFileName().toString().compareTo(a.getFileName().toString())) // mais novo primeiro
-                    .toList();
+            List<Path> backups = Files.list(backupDir)
+                    .filter(p -> p.getFileName().toString().startsWith("market_backup_") &&
+                            p.getFileName().toString().endsWith(".zip"))
+                    .sorted((a, b) -> b.getFileName().toString().compareTo(a.getFileName().toString()))
+                    .collect(Collectors.toList());
+
             for (int i = 5; i < backups.size(); i++) {
                 try { Files.deleteIfExists(backups.get(i)); } catch (Exception ignored) {}
             }
 
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy-HH:mm")).replace("-", "_").replace("/", "-").replace(":", "-");
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy_HH-mm-ss"));
             Path zipPath = backupDir.resolve("market_backup_" + timestamp + ".zip");
-            
-            // Caminho da database SQLite
+
+            // Caminhos dos arquivos do SQLite (WAL mode)
             Path dbPath = Path.of("config/infinity_nexus_market/market.db");
-            
+            Path walPath = Path.of("config/infinity_nexus_market/market.db-wal");
+            Path shmPath = Path.of("config/infinity_nexus_market/market.db-shm");
+
             if (!Files.exists(dbPath)) {
                 InfinityNexusMarket.LOGGER.warn("Database SQLite não encontrada para backup: {}", dbPath);
                 return;
             }
-            
+
             try (OutputStream fos = Files.newOutputStream(zipPath);
                  ZipOutputStream zos = new ZipOutputStream(fos)) {
-                
-                // Backup da database SQLite
-                ZipEntry dbEntry = new ZipEntry("market.db");
-                zos.putNextEntry(dbEntry);
-                Files.copy(dbPath, zos);
-                zos.closeEntry();
-                
-                // Backup de informações adicionais (metadata)
-                ZipEntry metadataEntry = new ZipEntry("backup_info.txt");
-                zos.putNextEntry(metadataEntry);
+
+                // 1. Backup do arquivo principal
+                addToZip(zos, dbPath, "market.db");
+
+                // 2. Backup dos arquivos WAL (se existirem)
+                if (Files.exists(walPath)) addToZip(zos, walPath, "market.db-wal");
+                if (Files.exists(shmPath)) addToZip(zos, shmPath, "market.db-shm");
+
+                // 3. Metadata
                 String metadata = String.format(
-                    "Backup criado em: %s\n" +
-                    "Database: market.db\n" +
-                    "Versão: SQLite\n" +
-                    "Tamanho: %d bytes\n" +
-                    "Servidor: %s",
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")),
-                    Files.size(dbPath),
-                    InfinityNexusMarket.serverLevel.getServer().getMotd()
+                        "Backup criado em: %s\n" +
+                                "Tipo: SQLite WAL\n" +
+                                "Arquivos: %s\n" +
+                                "Tamanho total: %d bytes\n" +
+                                "Servidor: %s",
+                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")),
+                        Files.exists(walPath) ? "market.db + WAL + SHM" : "market.db (non-WAL)",
+                        Files.size(dbPath) +
+                                (Files.exists(walPath) ? Files.size(walPath) : 0) +
+                                (Files.exists(shmPath) ? Files.size(shmPath) : 0),
+                        InfinityNexusMarket.serverLevel.getServer().getMotd()
                 );
-                zos.write(metadata.getBytes());
-                zos.closeEntry();
-                
-                InfinityNexusMarket.LOGGER.info("Backup da database SQLite criado com sucesso: {}", zipPath);
-                
+                addTextToZip(zos, "backup_info.txt", metadata);
+
+                InfinityNexusMarket.LOGGER.info("Backup completo criado: {}", zipPath);
+
             } catch (IOException e) {
-                InfinityNexusMarket.LOGGER.error("Erro ao criar backup da database SQLite", e);
+                InfinityNexusMarket.LOGGER.error("Erro ao criar backup", e);
             }
-            
+
         } catch (IOException e) {
             InfinityNexusMarket.LOGGER.error("Erro no sistema de backup", e);
         }
+    }
+
+    // Métodos auxiliares
+    private static void addToZip(ZipOutputStream zos, Path filePath, String entryName) throws IOException {
+        ZipEntry entry = new ZipEntry(entryName);
+        zos.putNextEntry(entry);
+        Files.copy(filePath, zos);
+        zos.closeEntry();
+    }
+
+    private static void addTextToZip(ZipOutputStream zos, String entryName, String content) throws IOException {
+        ZipEntry entry = new ZipEntry(entryName);
+        zos.putNextEntry(entry);
+        zos.write(content.getBytes());
+        zos.closeEntry();
     }
     
     /**

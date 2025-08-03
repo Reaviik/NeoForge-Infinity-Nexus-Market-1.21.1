@@ -112,69 +112,72 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
         });
     }
 
-    private static void processTransaction(ServerPlayer player, DatabaseManager.MarketItemEntry entry, int quantity, double cost, boolean isServerItem) {
-        // Subtrai saldo do comprador
-        DatabaseManager.setPlayerBalance(
-                player.getUUID().toString(),
-                player.getName().getString(),
-                DatabaseManager.getPlayerBalance(player.getUUID().toString()) - cost
-        );
+    public static void processTransaction(ServerPlayer player, DatabaseManager.MarketItemEntry entry,
+                                          int quantity, double cost, boolean isServerItem) {
+        // Mover operações de banco de dados para thread separado
+        new Thread(() -> {
+            try {
+                // Subtrai saldo do comprador
+                DatabaseManager.setPlayerBalance(
+                        player.getUUID().toString(),
+                        player.getName().getString(),
+                        DatabaseManager.getPlayerBalance(player.getUUID().toString()) - cost
+                );
 
-        // Atualiza estatísticas do comprador
-        DatabaseManager.incrementPlayerStats(
-                player.getUUID().toString(),
-                cost,    // total gasto
-                0.0,     // total ganho
-                0,       // total vendas
-                1        // total compras
-        );
+                // Atualiza estatísticas do comprador
+                DatabaseManager.incrementPlayerStats(
+                        player.getUUID().toString(),
+                        cost, 0.0, 0, 1
+                );
 
-        // Se não for item do servidor, adiciona saldo ao vendedor
-        if (!isServerItem && entry.sellerUUID != null) {
-            DatabaseManager.setPlayerBalance(
-                    entry.sellerUUID,
-                    entry.sellerName != null ? entry.sellerName : "Unknown",
-                    DatabaseManager.getPlayerBalance(entry.sellerUUID) + cost
-            );
+                // Se não for item do servidor, adiciona saldo ao vendedor
+                if (!isServerItem && entry.sellerUUID != null) {
+                    DatabaseManager.setPlayerBalance(
+                            entry.sellerUUID,
+                            entry.sellerName != null ? entry.sellerName : "Unknown",
+                            DatabaseManager.getPlayerBalance(entry.sellerUUID) + cost
+                    );
 
-            // Atualiza estatísticas do vendedor
-            DatabaseManager.incrementPlayerStats(
-                    entry.sellerUUID,
-                    0.0,     // total gasto
-                    cost,    // total ganho
-                    1,       // total vendas
-                    0        // total compras
-            );
-        }
+                    DatabaseManager.incrementPlayerStats(
+                            entry.sellerUUID,
+                            0.0, cost, 1, 0
+                    );
+                }
+            } catch (Exception e) {
+                InfinityNexusMarket.LOGGER.error("Erro ao processar transação", e);
+            }
+        }).start();
     }
 
     private static void updatePlayerSale(DatabaseManager.MarketItemEntry entry, int quantityBought) {
-        if(entry.type.equals("server")){
+        if(entry.type.equals("server")) {
             return;
         }
-        if (quantityBought >= entry.quantity && entry.type.equals("player")) {
+
+        int newQuantity = entry.quantity - quantityBought;
+
+        if (newQuantity <= 0) {
             DatabaseManager.removeMarketItem(entry.entryId);
         } else {
-            entry.quantity -= quantityBought;
             DatabaseManager.addOrUpdateMarketItem(
                     entry.entryId,
                     entry.type,
                     entry.sellerUUID,
                     entry.sellerName,
                     DatabaseManager.deserializeItemStack(entry.itemNbt),
-                    entry.quantity - quantityBought,
+                    newQuantity,
                     entry.basePrice,
                     entry.currentPrice
             );
-
-            DatabaseManager.addSalesHistory(
-                    entry.entryId,
-                    quantityBought,
-                    entry.currentPrice,
-                    entry.sellerUUID,
-                    entry.type
-            );
         }
+
+        DatabaseManager.addSalesHistory(
+                entry.itemNbt,  // Usar itemNbt em vez de entryId para histórico
+                quantityBought,
+                entry.currentPrice,
+                entry.sellerUUID,
+                entry.sellerName
+        );
     }
 
     private static void deliverItem(ServerPlayer player, ItemStack itemStack, int quantity) {

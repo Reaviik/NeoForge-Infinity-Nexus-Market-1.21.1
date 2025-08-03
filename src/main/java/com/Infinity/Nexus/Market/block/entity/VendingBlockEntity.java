@@ -138,11 +138,17 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
     }
 
     public void tick(Level pLevel, BlockPos pPos, BlockState pState) {
+
+        if(progress < maxProgress) {
+            progress++;
+            return;
+        }
         if (pLevel.isClientSide) return;
         //if (getEnergyStored() < ModConfigs.vendingEnergyPerOperation) return;
 
         if (autoEnabled && autoMinAmount > 0 && autoPrice > 0) {
             //extractEnergy(ModConfigs.vendingEnergyPerOperation, false);
+            progress = 0;
             autoPostSaleOnMarket();
         }
     }
@@ -186,7 +192,7 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
     }
 
     private boolean postSaleOnMarketBase(@Nullable Player player, int slot, double preco, boolean notificar) {
-        if (owner == null || !(level instanceof ServerLevel serverLevel)) {
+        if (owner == null || !(level instanceof ServerLevel)) {
             return false;
         }
 
@@ -196,6 +202,24 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
 
         if (!validateSale(player, item, sellerUUID, isServerItem)) {
             return false;
+        }
+
+        // Adicionar verificação de preço mínimo
+        if (!isServerItem && !validateMinimumPrice(item, preco)) {
+            ServerPlayer ownerPlayer = level.getServer().getPlayerList().getPlayer(sellerUUID);
+            if (ownerPlayer != null && autoNotify) {
+                double minPrice = DatabaseManager.getCurrentPriceForItem(DatabaseManager.serializeItemStack(item)) * 0.5;
+                ownerPlayer.displayClientMessage(
+                        Component.translatable("message.infinity_nexus_market.price_too_low",
+                                        ModConfigs.prefix,
+                                        preco,
+                                        "§b" + item.getHoverName().getString() + "§r")
+                                .withStyle(ChatFormatting.YELLOW),
+                        false);
+            }
+            DatabaseManager.addPlayerBalance(sellerUUID.toString(), ownerName, preco);
+            completeSaleTransaction(slot, item.getCount());
+            return true;
         }
 
         String sellerName = resolveSellerName(sellerUUID, isServerItem);
@@ -300,6 +324,20 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
             ).withStyle(ChatFormatting.RED);
             sp.displayClientMessage(msg, false);
         }
+    }
+    private boolean validateMinimumPrice(ItemStack item, double price) {
+        // Não aplicar para itens do servidor
+        if (owner.equals(SERVER_UUID.toString())) {
+            return true;
+        }
+
+        ItemStack copy = item.copy();
+        copy.setCount(1);
+        String itemNbt = DatabaseManager.serializeItemStack(copy);
+        double serverPrice = DatabaseManager.getCurrentPriceForItem(itemNbt);
+
+        // Permite apenas preços que sejam pelo menos 50% do preço do servidor
+        return price >= (serverPrice * 0.5);
     }
 
     @Override

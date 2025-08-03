@@ -17,6 +17,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
@@ -28,6 +29,8 @@ import java.util.List;
 
 public abstract class BaseMachineBlock extends BaseEntityBlock {
     public static IntegerProperty LIT = IntegerProperty.create("lit", 0, 1);
+    public static BooleanProperty WORK = BooleanProperty.create("work");
+    public static BooleanProperty PLACED = BooleanProperty.create("placed");
     protected VoxelShape SHAPE = Block.box(0, 0, 0, 16, 16, 16);
     public static DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     protected final MapCodec<BaseEntityBlock> CODEC;
@@ -61,7 +64,7 @@ public abstract class BaseMachineBlock extends BaseEntityBlock {
     }
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, LIT);
+        builder.add(FACING, LIT, WORK, PLACED);
     }
     @Override
     public @NotNull VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {

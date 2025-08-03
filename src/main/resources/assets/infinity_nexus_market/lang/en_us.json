@@ -1,4 +1,5 @@
 {
+  "itemGroup.infinity_nexus_market":"§x§9§0§0§0§9§dInfinity Nexus Market",
   "tooltip.infinity_nexus_market.pressShift": "§bPress §eShift §bto see more",
   "tooltip.infinity_nexus_market.ticket_content": "§bContent: %1$s §b× %2$s",
   "tooltip.infinity_nexus_market.ticket_empty": "§cThis ticket is empty.",
@@ -7,12 +8,13 @@
   "tooltip.infinity_nexus_market.market_empty": "The market is empty",
   "tooltip.infinity_nexus_market.owner_none": "No owner",
 
-  "block.infinity_nexus_market.vending_machine": "Vending Machine",
-  "block.infinity_nexus_market.buying_machine": "Buying Machine",
+  "block.infinity_nexus_market.vending_machine": "Vending",
+  "block.infinity_nexus_market.buying_machine": "Buying",
+  "block.infinity_nexus_market.market_machine": "Market",
 
-  "item.infinity_nexus_market.vending_machine_description": "Vending Machine: utility block to sell items automatically.",
-  "item.infinity_nexus_market.buying_machine_description": "Buying Machine: utility block to buy items automatically.",
-  "item.infinity_nexus_market.market_machine_description": "The market machine is a market core to seed all listed items in global market",
+  "item.infinity_nexus_market.vending_machine_description": "Vending: utility block to sell items automatically.",
+  "item.infinity_nexus_market.buying_machine_description": "Buying: utility block to buy items automatically.",
+  "item.infinity_nexus_market.market_machine_description": "The Market is a market core to see all listed items in global market",
   "item.infinity_nexus_market.ticket": "Ticket",
   "item.infinity_nexus_market.ticket_anyone": "Anyone",
 
@@ -101,6 +103,7 @@
 
   "message.infinity_nexus_market.sell_fail": "%s Failed to sell: slot empty or insufficient quantity!",
   "message.infinity_nexus_market.sell_success_item": "%s You added the item %2$sx %3$s to the market for %4$s coins.",
+  "message.infinity_nexus_market.price_too_low": "%s The price must be %s coins for §b%s§e. Item bought for server.",
   "message.infinity_nexus_market.buy_fail": "%s §cFailed to buy: insufficient balance or item unavailable!",
   "message.infinity_nexus_market.buy_success_item": "%s You bought the %2$sx %3$s for %4$s coins.",
   "message.infinity_nexus_market.copied_to_ticket": "%s Copied to ticket!",
@@ -187,5 +190,7 @@
   "command.infinity_nexus_market.sqlite.acquire.invalid_item": "%s Invalid item data",
   "command.infinity_nexus_market.sqlite.acquire.inventory_full": "%s Your inventory was full, the item was dropped at your feet",
   "command.infinity_nexus_market.sqlite.acquire.success": "%s You received %d x %s",
-  "command.infinity_nexus_market.sqlite.acquire.error": "%s Acquisition error: %s"
+  "command.infinity_nexus_market.sqlite.acquire.error": "%s Acquisition error: %s",
+  "command.infinity_nexus_market.sqlite.balance.balance.error": "Balance Error",
+  "tooltip.infinity_nexus_market.ticket_random_seller": "§bRandom Seller: %s"
 }

@@ -2,6 +2,7 @@ package com.Infinity.Nexus.Market;
 
 import com.Infinity.Nexus.Market.block.ModBlocksMarket;
 import com.Infinity.Nexus.Market.block.entity.ModBlockEntities;
+import com.Infinity.Nexus.Market.block.entity.client.AnimatedBlockRender;
 import com.Infinity.Nexus.Market.component.MarketDataComponents;
 import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.item.ModItemsMarket;
@@ -13,11 +14,16 @@ import com.Infinity.Nexus.Market.screen.seller.VendingScreen;
 import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.tab.ModTab;
 import com.mojang.logging.LogUtils;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.minecraft.server.level.ServerLevel;
+import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import org.slf4j.Logger;
@@ -54,7 +60,15 @@ public class InfinityNexusMarket {
         event.register(ModMenuTypes.MARKET_MENU.get(), MarketScreen::new);
     }
 
-
+    @EventBusSubscriber(modid = MOD_ID, value = Dist.CLIENT)
+    public static class ClientModEvents {
+        @SubscribeEvent
+        public static void onClientSetup(FMLClientSetupEvent event) {
+            BlockEntityRenderers.register(ModBlockEntities.VENDING_MACHINE_BE.get(), context -> new AnimatedBlockRender("vending_machine"));
+            BlockEntityRenderers.register(ModBlockEntities.BUYING_MACHINE_BE.get(), context -> new AnimatedBlockRender("buying_machine"));
+            BlockEntityRenderers.register(ModBlockEntities.MARKET_MACHINE_BE.get(), context -> new AnimatedBlockRender("market_machine"));
+        }
+    }
     private void setup(final FMLCommonSetupEvent event) {
         // Inicializa o SQLite
         event.enqueueWork(() -> {

@@ -20,9 +20,9 @@ import java.util.function.Supplier;
 public class ModBlocksMarket {
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(InfinityNexusMarket.MOD_ID);
     
-    public static final DeferredBlock<Block> VENDING_MACHINE = registerBlock("vending_machine", () -> new VendingMachine(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK).requiresCorrectToolForDrops().strength(3.0f, 6.0f).lightLevel((state) -> state.getValue(VendingMachine.LIT) == 1 ? 2 : 0).noOcclusion().mapColor(MapColor.METAL)));
-    public static final DeferredBlock<Block> BUYING_MACHINE = registerBlock("buying_machine", () -> new BuyingMachine(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK).requiresCorrectToolForDrops().strength(3.0f, 6.0f).lightLevel((state) -> state.getValue(VendingMachine.LIT) == 1 ? 2 : 0).noOcclusion().mapColor(MapColor.METAL)));
-    public static final DeferredBlock<Block> MARKET_MACHINE = registerBlock("market_machine", () -> new MarketMachine(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK).requiresCorrectToolForDrops().strength(3.0f, 6.0f).lightLevel((state) -> state.getValue(VendingMachine.LIT) == 1 ? 2 : 0).noOcclusion().mapColor(MapColor.METAL)));
+    public static final DeferredBlock<Block> VENDING_MACHINE = BLOCKS.register("vending_machine", () -> new VendingMachine(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK).requiresCorrectToolForDrops().lightLevel((state) -> state.getValue(VendingMachine.LIT) == 1 ? 2 : 0).noOcclusion().mapColor(MapColor.METAL)));
+    public static final DeferredBlock<Block> BUYING_MACHINE = BLOCKS.register("buying_machine", () -> new BuyingMachine(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK).requiresCorrectToolForDrops().lightLevel((state) -> state.getValue(VendingMachine.LIT) == 1 ? 2 : 0).noOcclusion().mapColor(MapColor.METAL)));
+    public static final DeferredBlock<Block> MARKET_MACHINE = BLOCKS.register("market_machine", () -> new MarketMachine(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK).requiresCorrectToolForDrops().lightLevel((state) -> state.getValue(VendingMachine.LIT) == 1 ? 2 : 0).noOcclusion().mapColor(MapColor.METAL)));
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);

@@ -1,5 +1,6 @@
 package com.Infinity.Nexus.Market.block.entity;
 
+import com.Infinity.Nexus.Market.block.custom.BaseMachineBlock;
 import com.Infinity.Nexus.Market.itemStackHandler.RestrictedItemStackHandler;
 import com.Infinity.Nexus.Market.utils.ModEnergyStorage;
 import net.minecraft.core.BlockPos;
@@ -22,10 +23,12 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
+import software.bernie.geckolib.animatable.GeoAnimatable;
 import software.bernie.geckolib.animatable.GeoBlockEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animation.*;
 import software.bernie.geckolib.util.GeckoLibUtil;
+import software.bernie.geckolib.util.RenderUtil;
 
 import java.util.UUID;
 
@@ -187,21 +190,45 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
         return autoNotify;
     }
 
-    protected static final RawAnimation DEPLOY_ANIM = RawAnimation.begin().thenPlay("misc.deploy").thenLoop("misc.idle");
+    protected static final RawAnimation WORK = RawAnimation.begin().thenPlay("animation.model.work").thenLoop("animation.model.off");
+    protected static final RawAnimation PLACED = RawAnimation.begin().thenPlay("animation.model.start").thenLoop("animation.model.off");
+    protected static final RawAnimation OFF = RawAnimation.begin().thenLoop("animation.model.off");
 
-    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+    protected AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, this::deployAnimController));
     }
 
-    protected <E extends AbstractMarketBlockEntity> PlayState deployAnimController(final AnimationState<E> state) {
-        return state.setAndContinue(DEPLOY_ANIM);
+    protected <E extends GeoAnimatable> PlayState deployAnimController(final AnimationState<E> state) {
+        try{
+            if(level.isClientSide) {
+                if (this.getBlockState().getValue(BaseMachineBlock.PLACED)) {
+                    state.getController().setAnimation(PLACED);
+                    return PlayState.CONTINUE;
+                }
+                if (this.getBlockState().getValue(BaseMachineBlock.WORK)) {
+                    state.getController().setAnimation(WORK);
+                    state.setControllerSpeed(1.0f);
+                }else{
+                    state.getController().setAnimation(OFF);
+                    state.setControllerSpeed(1.0f);
+                }
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return PlayState.CONTINUE;
     }
 
     @Override
     public AnimatableInstanceCache getAnimatableInstanceCache() {
         return this.cache;
+    }
+
+    @Override
+    public double getTick(Object blockEntity) {
+        return RenderUtil.getCurrentTick();
     }
 }

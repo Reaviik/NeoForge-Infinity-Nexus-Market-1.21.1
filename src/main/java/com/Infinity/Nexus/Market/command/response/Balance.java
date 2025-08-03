@@ -51,7 +51,6 @@ public class Balance {
                     target.sendSystemMessage(Component.translatable("command.infinity_nexus_market.sqlite.balance.add.success_receiver",
                             ModConfigs.prefix,
                             amount,
-                            profile.getName(),
                             (currentBalance + amount)));
                 }
             }
