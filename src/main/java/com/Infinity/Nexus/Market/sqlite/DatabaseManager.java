@@ -6,62 +6,53 @@ import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.item.ItemStack;
+import org.h2.Driver;
 
 import java.io.File;
 import java.sql.*;
 import java.util.*;
 
 public class DatabaseManager {
+
+    private static final String DB_NAME = "market";
+    private static final String DB_USERNAME = "sa";
+    private static final String DB_PASSWORD = "sa";
+    private static String DB_URL;
     private static final UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
-    private static final String DB_URL = "jdbc:sqlite:" + new File("config/infinity_nexus_market/market.db").getAbsolutePath();
     private static boolean isInitialized = false;
 
     public static void initialize() {
-        if (isInitialized) {
+        if (isInitialized) return;
+
+        try {
+            // Carregar o driver diretamente
+            Driver driver = (Driver) Class.forName("org.h2.Driver").newInstance();
+            DriverManager.registerDriver(new DriverShim(driver));
+        } catch (Exception e) {
+            System.err.println("[InfinityNexus] FATAL: Failed to load H2 driver");
             return;
         }
 
-        InfinityNexusMarket.LOGGER.info("Inicializando SQLite database...");
+        File configDir = new File("config/infinity_nexus_market/");
+        if (!configDir.exists()) configDir.mkdirs();
+        DB_URL = "jdbc:h2:file:" + new File(configDir, DB_NAME).getAbsolutePath();
 
-        try {
-            // Garante que o diretório existe
-            new File("config/infinity_nexus_market").mkdirs();
-
-            // Carrega o driver SQLite
-            try {
-                Class.forName("org.sqlite.JDBC").getDeclaredConstructor().newInstance();
-                InfinityNexusMarket.LOGGER.info("SQLite driver carregado com sucesso!");
-            } catch (Exception e) {
-                InfinityNexusMarket.LOGGER.error("Falha ao carregar o driver SQLite. Verifique se a dependência sqlite-jdbc está no classpath.", e);
-                return;
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            createAllTables(conn);
+            isInitialized = true;
+            System.out.println("[InfinityNexus] H2 Database initialized with market.db");
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 28000) {
+                System.err.println("[InfinityNexus] FATAL: Database authentication failed. Please check credentials.");
+            } else {
+                System.err.println("[InfinityNexus] Failed to initialize database: " + e.getMessage());
             }
-
-            // Testa a conexão, configura WAL e cria as tabelas
-            try (Connection conn = DriverManager.getConnection(DB_URL);
-                 Statement stmt = conn.createStatement()) {
-
-                // Configurações de performance do SQLite
-                stmt.execute("PRAGMA journal_mode=WAL;");          // Habilita WAL (melhor para concorrência)
-                stmt.execute("PRAGMA synchronous=NORMAL;");        // Balanceamento entre segurança e performance
-                stmt.execute("PRAGMA cache_size=-10000;");         // 10MB de cache em RAM
-                stmt.execute("PRAGMA temp_store=MEMORY;");         // Usa RAM para temporários
-                stmt.execute("PRAGMA busy_timeout=5000;");         // Timeout de 5s para locks
-
-                InfinityNexusMarket.LOGGER.info("Conectado ao banco SQLite (WAL mode): {}", DB_URL);
-                createAllTables(conn);
-                isInitialized = true;
-                InfinityNexusMarket.LOGGER.info("Todas as tabelas criadas/verificadas com sucesso!");
-
-            } catch (SQLException e) {
-                InfinityNexusMarket.LOGGER.error("Falha ao conectar ou criar tabelas no banco SQLite", e);
-            }
-
-        } catch (Exception e) {
-            InfinityNexusMarket.LOGGER.error("Erro durante inicialização do SQLite", e);
         }
     }
+
+
     private static void createAllTables(Connection conn) throws SQLException {
-        // 1. Tabela de saldos dos jogadores (agora com estatísticas)
+        // 1. Tabela de saldos dos jogadores
         String createPlayerBalances = "CREATE TABLE IF NOT EXISTS player_balances (" +
                 "uuid TEXT PRIMARY KEY, " +
                 "player_name TEXT NOT NULL, " +
@@ -71,51 +62,54 @@ public class DatabaseManager {
                 "total_vendas INTEGER DEFAULT 0, " +
                 "total_compras INTEGER DEFAULT 0, " +
                 "max_sales INTEGER DEFAULT 5, " +
-                "last_updated DATETIME DEFAULT CURRENT_TIMESTAMP" +
+                "last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                 ");";
 
-        // 2. Tabela unificada de market (server + player)
+        // 2. Tabela de market
         String createMarketItems = "CREATE TABLE IF NOT EXISTS market_items (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "id INT AUTO_INCREMENT PRIMARY KEY, " +
                 "entry_id TEXT UNIQUE NOT NULL, " +
                 "type TEXT NOT NULL CHECK (type IN ('server', 'player')), " +
-                "seller_uuid TEXT, " + // NULL para server, UUID do jogador para player
-                "seller_name TEXT, " + // NULL para server, nome do jogador para player
+                "seller_uuid TEXT, " +
+                "seller_name TEXT, " +
                 "item_stack_nbt TEXT NOT NULL, " +
-                "quantity INTEGER NOT NULL, " + // 0 para server (estoque infinito), quantidade real para player
+                "quantity INT NOT NULL, " +
                 "base_price REAL NOT NULL, " +
                 "current_price REAL NOT NULL, " +
-                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " +
-                "last_updated DATETIME DEFAULT CURRENT_TIMESTAMP, " +
-                "is_active INTEGER DEFAULT 1" +
+                "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "is_active BOOLEAN DEFAULT TRUE" +
                 ");";
 
-        // 3. Tabela de histórico de vendas
+        // 3. Histórico de vendas
         String createSalesHistory = "CREATE TABLE IF NOT EXISTS sales_history (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "id IDENTITY PRIMARY KEY, " +
                 "item_stack_nbt TEXT NOT NULL, " +
-                "quantity INTEGER NOT NULL, " +
+                "quantity INT NOT NULL, " +
                 "price REAL NOT NULL, " +
                 "seller_uuid TEXT, " +
                 "seller_name TEXT, " +
-                "transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP" +
+                "transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                 ");";
 
         // 4. Tabela de inflação
         String createInflationTable = "CREATE TABLE IF NOT EXISTS item_inflation (" +
-                "item_nbt TEXT PRIMARY KEY, " + // Identificador único do item (NBT)
-                "base_price REAL NOT NULL, " +  // Preço original
-                "current_price REAL NOT NULL, " + // Preço ajustado
-                "purchases_last_period INTEGER DEFAULT 0, " + // Compras no último ciclo
-                "last_updated DATETIME DEFAULT CURRENT_TIMESTAMP" +
+                "item_nbt TEXT PRIMARY KEY, " +
+                "base_price REAL NOT NULL, " +
+                "current_price REAL NOT NULL, " +
+                "purchases_last_period INT DEFAULT 0, " +
+                "last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                 ");";
 
-        conn.createStatement().execute(createInflationTable);
-        conn.createStatement().execute(createPlayerBalances);
-        conn.createStatement().execute(createMarketItems);
-        conn.createStatement().execute(createSalesHistory);
-    }
+        Statement stmt = conn.createStatement();
+        stmt.execute(createPlayerBalances);
+        stmt.execute(createMarketItems);
+        stmt.execute(createSalesHistory);
+        stmt.execute(createInflationTable);
+        stmt.close();
 
+
+    }
 
     // ========== MÉTODOS PARA PLAYER BALANCES ==========
     public static double getPlayerBalance(String uuid) {
@@ -133,7 +127,11 @@ public class DatabaseManager {
     public static void setPlayerBalance(String uuid, String playerName, double balance) {
         if (!isInitialized) initialize();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            String upsert = "INSERT OR REPLACE INTO player_balances (uuid, player_name, balance, max_sales, last_updated) VALUES (?, ?, ?, COALESCE((SELECT max_sales FROM player_balances WHERE uuid = ?), 5), CURRENT_TIMESTAMP);";
+            String upsert = "MERGE INTO player_balances USING (VALUES(?, ?, ?, COALESCE((SELECT max_sales FROM player_balances WHERE uuid = ?), 5), CURRENT_TIMESTAMP)) " +
+                    "AS vals(uuid, player_name, balance, max_sales, last_updated) " +
+                    "ON player_balances.uuid = vals.uuid " +
+                    "WHEN MATCHED THEN UPDATE SET player_name = vals.player_name, balance = vals.balance, max_sales = vals.max_sales, last_updated = vals.last_updated " +
+                    "WHEN NOT MATCHED THEN INSERT (uuid, player_name, balance, max_sales, last_updated) VALUES (vals.uuid, vals.player_name, vals.balance, vals.max_sales, vals.last_updated);";
             PreparedStatement pstmt = conn.prepareStatement(upsert);
             pstmt.setString(1, uuid);
             pstmt.setString(2, playerName == null ? "" : playerName);
@@ -221,7 +219,7 @@ public class DatabaseManager {
             // Verifica se já existe um item ativo com o mesmo NBT E MESMO TIPO
             PreparedStatement checkStmt = conn.prepareStatement(
                     "SELECT entry_id, quantity FROM market_items " +
-                            "WHERE item_stack_nbt = ? AND type = ? AND is_active = 1 LIMIT 1");
+                            "WHERE item_stack_nbt = ? AND type = ? AND is_active = TRUE LIMIT 1");
             checkStmt.setString(1, itemNbt);
             checkStmt.setString(2, type);
             ResultSet rs = checkStmt.executeQuery();
@@ -293,7 +291,7 @@ public class DatabaseManager {
         if (!isInitialized) initialize();
         List<MarketItemEntry> items = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            String query = "SELECT * FROM market_items WHERE is_active = 1";
+            String query = "SELECT * FROM market_items WHERE is_active = TRUE";
             if (typeFilter != null) {
                 query += " AND type = '" + typeFilter + "'";
             }
@@ -313,7 +311,7 @@ public class DatabaseManager {
                 entry.quantity = rs.getInt("quantity");
                 entry.basePrice = rs.getDouble("base_price");
                 entry.currentPrice = rs.getDouble("current_price");
-                entry.isActive = rs.getInt("is_active") == 1;
+                entry.isActive = rs.getBoolean("is_active");
                 entry.createdAt = rs.getString("created_at");
                 entry.lastUpdated = rs.getString("last_updated");
                 items.add(entry);
@@ -329,7 +327,7 @@ public class DatabaseManager {
     public static MarketItemEntry getMarketItemByEntryId(String entryId) {
         if (!isInitialized) initialize();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            String query = "SELECT * FROM market_items WHERE entry_id = ? AND is_active = 1 LIMIT 1;";
+            String query = "SELECT * FROM market_items WHERE entry_id = ? AND is_active = TRUE LIMIT 1;";
             PreparedStatement pstmt = conn.prepareStatement(query);
             pstmt.setString(1, entryId);
 
@@ -347,7 +345,7 @@ public class DatabaseManager {
                 entry.quantity = rs.getInt("quantity");
                 entry.basePrice = rs.getDouble("base_price");
                 entry.currentPrice = rs.getDouble("current_price");
-                entry.isActive = rs.getInt("is_active") == 1;
+                entry.isActive = rs.getBoolean("is_active");
                 entry.createdAt = rs.getString("created_at");
                 entry.lastUpdated = rs.getString("last_updated");
                 return entry;
@@ -365,7 +363,7 @@ public class DatabaseManager {
         if (!isInitialized) initialize();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             PreparedStatement pstmt = conn.prepareStatement(
-                    "UPDATE market_items SET is_active = 0 WHERE entry_id = ?;");
+                    "UPDATE market_items SET is_active = FALSE WHERE entry_id = ?;");
             pstmt.setString(1, entryId);
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -510,7 +508,8 @@ public class DatabaseManager {
         if (!isInitialized) initialize();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             int deleted = conn.createStatement().executeUpdate(
-                    "DELETE FROM market_items WHERE type = 'player' AND is_active = 1 AND created_at < datetime('now', '-" + daysToExpire + " days');");
+                    "DELETE FROM market_items WHERE ... AND created_at < DATEADD('DAY', -" + daysToExpire + ", CURRENT_TIMESTAMP)");
+
             if (deleted > 0) {
                 InfinityNexusMarket.LOGGER.info("Removidas " + deleted + " vendas expiradas");
             }
@@ -524,7 +523,7 @@ public class DatabaseManager {
     public static void compactDatabase() {
         if (!isInitialized) initialize();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            conn.createStatement().execute("VACUUM;");
+            conn.createStatement().execute("SHUTDOWN DEFRAG;");
             InfinityNexusMarket.LOGGER.info("Database compactada");
         } catch (SQLException e) {
             InfinityNexusMarket.LOGGER.error("Erro ao compactar", e);
@@ -615,7 +614,7 @@ public class DatabaseManager {
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             PreparedStatement pstmt = conn.prepareStatement(
                     "SELECT COUNT(*) as count FROM market_items " +
-                            "WHERE type = 'player' AND seller_uuid = ? AND is_active = 1");
+                            "WHERE type = 'player' AND seller_uuid = ? AND is_active = TRUE");
             pstmt.setString(1, uuid);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) return rs.getInt("count");
@@ -664,7 +663,7 @@ public class DatabaseManager {
             PreparedStatement pstmt = conn.prepareStatement(
                     "SELECT 1 FROM market_items WHERE " +
                             "item_stack_nbt LIKE ? AND type = 'server' LIMIT 1;");
-            pstmt.setString(1, "%\"" + baseItemId + "\"%");
+            pstmt.setString(1, "%" + baseItemId + "%");
             return pstmt.executeQuery().next();
         } catch (SQLException e) {
             InfinityNexusMarket.LOGGER.error("Erro ao verificar item do servidor", e);

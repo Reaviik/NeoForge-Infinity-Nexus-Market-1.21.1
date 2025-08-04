@@ -1,3 +1,4 @@
-// 1.21.1	2025-07-23T09:07:38.1063796	Loot Tables
-418088071f5223560fd8d8e3b702b7e6ecb8d7da data/infinity_nexus_market/loot_table/blocks/buying_achine.json
+// 1.21.1	2025-08-03T12:18:55.7141993	Loot Tables
+6c60fb9771bafbdf0446648a6c1d0f5037646139 data/infinity_nexus_market/loot_table/blocks/buying_machine.json
+959024d12a406a502830a818770c07b915c6d62c data/infinity_nexus_market/loot_table/blocks/market_machine.json
 5d142b5c508f554a7b2d4631b3fae98c8cbdfc7d data/infinity_nexus_market/loot_table/blocks/vending_machine.json

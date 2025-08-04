@@ -97,7 +97,7 @@ public abstract class BaseMachineBlock extends BaseEntityBlock {
     public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> components, TooltipFlag flag) {
         if (getDescription() != null) {
             if(!Screen.hasShiftDown()){
-                components.add(Component.translatable("tooltip.infinity_nexus_core.pressShift"));
+                components.add(Component.translatable("tooltip.infinity_nexus_market.pressShift"));
             }else{
                 String[] component = getDescription();
                 for(String s : component){

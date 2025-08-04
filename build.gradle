@@ -1,5 +1,5 @@
 plugins {
-    id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id("com.gradleup.shadow") version "9.0.0-rc3"
     id 'java-library'
     id 'maven-publish'
     id 'net.neoforged.moddev' version '2.0.103'
@@ -20,6 +20,7 @@ group = mod_group_id
 
 repositories {
     mavenLocal()
+    mavenCentral()
     maven {
         url = "https://cursemaven.com"
     }
@@ -115,54 +116,29 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 // a dependency that will be present for runtime testing but that is
 // "optional", meaning it will not be pulled by dependents of this mod.
 configurations {
-    runtimeClasspath.extendsFrom localRuntime
-    shadow
-    implementation.extendsFrom shadow
+    shade
+    implementation.extendsFrom shade
+    all {
+        resolutionStrategy {
+            force 'org.slf4j:slf4j-api:2.0.9' // Force uma versão específica
+            eachDependency { DependencyResolveDetails details ->
+                if (details.requested.group == 'org.slf4j') {
+                    details.useVersion '2.0.9'
+                }
+            }
+        }
+    }
 }
 
 dependencies {
-    // Example optional mod dependency with JEI
-    // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
-    // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
-    // compileOnly "mezz.jei:jei-${mc_version}-neoforge-api:${jei_version}"
-    // We add the full version to localRuntime, not runtimeOnly, so that we do not publish a dependency on it
-    // localRuntime "mezz.jei:jei-${mc_version}-neoforge:${jei_version}"
-
     implementation "curse.maven:jei-238222:5846880"
     implementation "curse.maven:jade-324717:6291517"
     implementation "curse.maven:guideme-1173950:6396436"
-
-    //implementation group: 'org.xerial', name: 'sqlite-jdbc', version: '3.45.3.0'
-
-    // To this:
-    //implementation 'org.xerial:sqlite-jdbc:3.45.3.0'
-    //runtimeOnly 'org.xerial:sqlite-jdbc:3.45.3.0'
-    //shadow 'org.xerial:sqlite-jdbc:3.45.3.0'
-
     implementation "curse.maven:geckolib-388172:6659026"
 
-    additionalRuntimeClasspath "curse.maven:mysqlconnector-561280:4684944"
-    additionalRuntimeClasspath "curse.maven:sqliteconnector-560832:3582173"
-    // Add this to ensure shadowJar is built
-    configurations.configureEach {
-        resolutionStrategy {
-            force 'org.xerial:sqlite-jdbc:3.45.3.0'
-        }
-    }
-    // Example mod dependency using a mod jar from ./libs with a flat dir repository
-    // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
-    // The group id is ignored when searching -- in this case, it is "blank"
-    // implementation "blank:coolmod-${mc_version}:${coolmod_version}"
-
-    // Example mod dependency using a file as dependency
-    // implementation files("libs/coolmod-${mc_version}-${coolmod_version}.jar")
-
-    // Example project dependency using a sister or child project:
-    // implementation project(":myproject")
-
-    // For more info:
-    // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
-    // http://www.gradle.org/docs/current/userguide/dependency_management.html
+    implementation 'com.h2database:h2:2.2.224'
+    additionalRuntimeClasspath  'com.h2database:h2:2.2.224'
+    shade 'com.h2database:h2:2.2.224'
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -205,30 +181,16 @@ publishing {
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+shadowJar {
+    configurations = [project.configurations.shade]
+    mergeServiceFiles()
+    relocate 'com.h2database', 'com.infinity.nexus.shadow.h2'
 }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 
-// IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
 idea {
     module {
         downloadSources = true
         downloadJavadoc = true
     }
 }
-//shadowJar {
-//    archiveClassifier.set('')
-//    mergeServiceFiles()
-//    relocate 'org.sqlite', 'com.infinitynexus.shaded.sqlite'
-//
-//    // Inclui explicitamente o driver SQLite
-//    dependencies {
-//        include(dependency('org.xerial:sqlite-jdbc:.*'))
-//    }
-//}
-//
-//// Configuração especial para runClient
-//tasks.named('runClient') {
-//    // Garante que as dependências runtime são incluídas
-//    classpath = configurations.runtimeClasspath
-//}
