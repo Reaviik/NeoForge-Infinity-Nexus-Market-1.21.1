@@ -136,10 +136,6 @@ dependencies {
     implementation "curse.maven:guideme-1173950:6396436"
     implementation "curse.maven:geckolib-388172:6659026"
 
-    implementation 'com.h2database:h2:2.2.224'
-    additionalRuntimeClasspath  'com.h2database:h2:2.2.224'
-    shade 'com.h2database:h2:2.2.224'
-
     implementation 'mysql:mysql-connector-java:8.0.28'
     additionalRuntimeClasspath 'mysql:mysql-connector-java:8.0.28'
     shade 'mysql:mysql-connector-java:8.0.28'
@@ -197,7 +193,6 @@ shadowJar {
     configurations = [project.configurations.shade]
     mergeServiceFiles()
     relocate 'com.mysql', 'com.infinity.nexus.shadow.mysql'
-    relocate 'com.h2database', 'com.infinity.nexus.shadow.h2'
     relocate 'com.zaxxer', 'com.infinity.nexus.shadow.zaxxer'
 
 
