@@ -28,6 +28,8 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import org.slf4j.Logger;
 
+import java.sql.SQLException;
+
 @Mod(InfinityNexusMarket.MOD_ID)
 public class InfinityNexusMarket {
     long time = System.currentTimeMillis();
@@ -69,13 +71,8 @@ public class InfinityNexusMarket {
             BlockEntityRenderers.register(ModBlockEntities.MARKET_MACHINE_BE.get(), context -> new AnimatedBlockRender("market_machine"));
         }
     }
-    private void setup(final FMLCommonSetupEvent event) {
-        // Inicializa o SQLite
-        event.enqueueWork(() -> {
-            LOGGER.info("§aInicializando sistema SQLite...");
-            DatabaseManager.initialize();
-        });
 
+    private void setup(final FMLCommonSetupEvent event) {
         LOGGER.info("   §4_____§5_   __§9__________§3_   ______§b_______  __");
         LOGGER.info("  §4/_  _§5/ | / §9/ ____/  _§3/ | / /  _§b/_  __| \\/ /");
         LOGGER.info("   §4/ /§5/  |/ §9/ /_   / /§3/  |/ // /  §b/ /   \\  / ");

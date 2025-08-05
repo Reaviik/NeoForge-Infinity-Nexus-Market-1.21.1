@@ -1,7 +1,6 @@
 package com.Infinity.Nexus.Market.command;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
-import com.Infinity.Nexus.Market.command.response.Backup;
 import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.mojang.brigadier.CommandDispatcher;
@@ -33,14 +32,6 @@ public class SQLiteCommands {
                     .executes(SQLiteCommands::showStats))
                     .then(Commands.literal("clean")
                             .executes(SQLiteCommands::cleanCorruptedData))
-                    .then(Commands.literal("backup")
-                            .then(Commands.literal("create")
-                                    .executes(Backup::create))
-                        .then(Commands.literal("list")
-                                .executes(Backup::list))
-                        .then(Commands.literal("restore")
-                                .then(Commands.argument("backup_file", StringArgumentType.word())
-                                        .executes(Backup::restore))))
                     .then(Commands.literal("itemlookup")
                             .then(Commands.argument("entry_id", StringArgumentType.word())
                                     .suggests(ENTRY_ID_SUGGESTIONS)

@@ -16,6 +16,12 @@ public class ModConfigs {
     //-----------------------------------------------Vending-----------------------------------------------//
     //Prefix
     private static final ModConfigSpec.ConfigValue<String> PREFIX = BUILDER.comment("Defines the message prefix").define("prefix", "§f[§bMarket§f]: ");
+    //Database
+    private static final ModConfigSpec.ConfigValue<String> DB_IP = BUILDER.comment("IP do banco de dados").define("db_ip", "127.0.0.1");
+    private static final ModConfigSpec.IntValue DB_PORT = BUILDER.comment("Porta do banco de dados").defineInRange("db_port", 3306, 1, 65535);
+    private static final ModConfigSpec.ConfigValue<String> DB_NAME = BUILDER.comment("Nome do banco de dados").define("db_name", "s4_loja");
+    private static final ModConfigSpec.ConfigValue<String> DB_USERNAME = BUILDER.comment("Usuário do banco de dados").define("db_username", "usuario");
+    private static final ModConfigSpec.ConfigValue<String> DB_PASSWORD = BUILDER.comment("Senha do banco de dados").define("db_password", "senha");
     //ENERGY Vending
     private static final ModConfigSpec.IntValue VENDING_ENERGY = BUILDER.comment("Defines the amount of energy that the Vending will store").defineInRange("vending_energy_capacity", 150000, 1, Integer.MAX_VALUE);
     private static final ModConfigSpec.IntValue VENDING_ENERGY_TRANSFER = BUILDER.comment("Defines the amount of energy that the Vending will transfer").defineInRange("vending_energy_transfer", 100000, 1, Integer.MAX_VALUE);
@@ -59,6 +65,12 @@ public class ModConfigs {
 
     //-----------------------------------------------Prefix-----------------------------------------------//
     public static String prefix;
+    //-----------------------------------------------Database-----------------------------------------------//
+    public static String dbIp;
+    public static int dbPort;
+    public static String dbName;
+    public static String dbUsername;
+    public static String dbPassword;
     //-----------------------------------------------Vending-----------------------------------------------//
     public static int vendingEnergyCapacity;
     public static int vendingEnergyTransfer;
@@ -95,6 +107,12 @@ public class ModConfigs {
     static void onLoad(final ModConfigEvent.Loading event) {
         //-----------------------------------------------Prefix-----------------------------------------------//
         prefix = PREFIX.get();
+        //-----------------------------------------------Database-----------------------------------------------//
+        dbIp = DB_IP.get();
+        dbPort = DB_PORT.get();
+        dbName = DB_NAME.get();
+        dbUsername = DB_USERNAME.get();
+        dbPassword = DB_PASSWORD.get();
         //-----------------------------------------------Vending-----------------------------------------------//
         vendingEnergyCapacity = VENDING_ENERGY.get();
         vendingEnergyTransfer = VENDING_ENERGY_TRANSFER.get();

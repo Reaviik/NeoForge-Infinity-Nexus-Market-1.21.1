@@ -180,7 +180,7 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
         return false;
     }
 
-    public synchronized void postManualSaleToMarket(Player player, double price) {
+    public void postManualSaleToMarket(Player player, double price) {
         ItemStack item = itemHandler.getStackInSlot(MANUAL_SLOT).copy();
         boolean success = postSaleOnMarketBase(player, MANUAL_SLOT, price, false);
 
@@ -204,15 +204,18 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
             return false;
         }
 
-        // Adicionar verificação de preço mínimo
-        if (!isServerItem && !validateMinimumPrice(item, preco)) {
+        ItemStack copy = item.copy();
+        copy.setCount(1);
+        String itemNbt = DatabaseManager.serializeItemStack(copy);
+
+        if (!isServerItem && !validateMinimumPrice(itemNbt, preco)) {
             ServerPlayer ownerPlayer = level.getServer().getPlayerList().getPlayer(sellerUUID);
             if (ownerPlayer != null && autoNotify) {
-                double minPrice = DatabaseManager.getCurrentPriceForItem(DatabaseManager.serializeItemStack(item)) * 0.5;
+                double minPrice = DatabaseManager.getCurrentPriceForItem(itemNbt) * 0.5;
                 ownerPlayer.displayClientMessage(
                         Component.translatable("message.infinity_nexus_market.price_too_low",
                                         ModConfigs.prefix,
-                                        preco,
+                                        minPrice,
                                         "§b" + item.getHoverName().getString() + "§r")
                                 .withStyle(ChatFormatting.YELLOW),
                         false);
@@ -325,15 +328,11 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
             sp.displayClientMessage(msg, false);
         }
     }
-    private boolean validateMinimumPrice(ItemStack item, double price) {
+    private boolean validateMinimumPrice(String itemNbt, double price) {
         // Não aplicar para itens do servidor
         if (owner.equals(SERVER_UUID.toString())) {
             return true;
         }
-
-        ItemStack copy = item.copy();
-        copy.setCount(1);
-        String itemNbt = DatabaseManager.serializeItemStack(copy);
         double serverPrice = DatabaseManager.getCurrentPriceForItem(itemNbt);
 
         // Permite apenas preços que sejam pelo menos 50% do preço do servidor
@@ -348,12 +347,5 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
             return;
         }
         super.setOwner(player);
-    }
-
-    private void debugLog(String message) {
-        if (DEBUG_MODE && level != null && !level.isClientSide) {
-            level.getServer().getPlayerList().broadcastSystemMessage(
-                    Component.literal(LOG_PREFIX + message), false);
-        }
     }
 }
