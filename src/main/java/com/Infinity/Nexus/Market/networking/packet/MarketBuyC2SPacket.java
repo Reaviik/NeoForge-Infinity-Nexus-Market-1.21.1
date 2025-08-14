@@ -88,8 +88,9 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
             int availableQuantity = isServerItem ? Integer.MAX_VALUE : marketEntry.quantity;
             int quantityToBuy = Math.min(packet.quantity(), availableQuantity);
             double cost = marketEntry.currentPrice * quantityToBuy;
+            double playerBalance = DatabaseManager.getPlayerBalance(player.getUUID().toString());
 
-            if (DatabaseManager.getPlayerBalance(player.getUUID().toString()) < cost) {
+            if (playerBalance < cost) {
                 player.displayClientMessage(Component.translatable("message.infinity_nexus_market.insufficient_balance", ModConfigs.prefix), false);
                 return;
             }
@@ -142,6 +143,8 @@ public record MarketBuyC2SPacket(UUID transactionId, int quantity) implements Cu
                             entry.sellerUUID,
                             0.0, cost, 1, 0
                     );
+                }else{
+                    DatabaseManager.addPlayerBalance(SERVER_UUID.toString(), "Server", entry.currentPrice * quantity);
                 }
             } catch (Exception e) {
                 InfinityNexusMarket.LOGGER.error("Erro ao processar transação", e);

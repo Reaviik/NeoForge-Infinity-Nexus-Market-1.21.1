@@ -1,6 +1,7 @@
 package com.Infinity.Nexus.Market.block.entity;
 
 import com.Infinity.Nexus.Market.block.custom.BaseMachineBlock;
+import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.itemStackHandler.RestrictedItemStackHandler;
 import com.Infinity.Nexus.Market.utils.ModEnergyStorage;
 import net.minecraft.core.BlockPos;
@@ -12,11 +13,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -33,6 +36,7 @@ import software.bernie.geckolib.util.RenderUtil;
 import java.util.UUID;
 
 public abstract class AbstractMarketBlockEntity extends BlockEntity implements MenuProvider, GeoBlockEntity {
+    protected final UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
     protected String owner;
     protected String ownerName;
     protected boolean autoEnabled = false;
@@ -42,6 +46,9 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
     protected final ContainerData data;
     protected final RestrictedItemStackHandler itemHandler;
     protected final ModEnergyStorage ENERGY_STORAGE;
+    protected int progress = 0;
+    protected int maxProgress = ModConfigs.ticksPerOperation;
+    private final float speed = maxProgress > 0 ? 10f / maxProgress : 1.0f;
 
     public AbstractMarketBlockEntity(BlockEntityType<?> type, BlockPos pPos, BlockState pBlockState, int slots) {
         super(type, pPos, pBlockState);
@@ -51,7 +58,36 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
     }
 
     protected abstract RestrictedItemStackHandler createItemHandler(int slots);
-    protected abstract ContainerData createContainerData();
+
+    protected ContainerData createContainerData() {
+        return new ContainerData() {
+            @Override
+            public int get(int pIndex) {
+                return switch (pIndex) {
+                    case 0 -> progress;
+                    case 1 -> maxProgress;
+                    case 2 -> owner == null ? 0 : 1;
+                    case 3 -> ownerName == null ? 0 : 1;
+                    default -> 0;
+                };
+            }
+
+            @Override
+            public void set(int pIndex, int pValue) {
+                switch (pIndex) {
+                    case 0 -> progress = pValue;
+                    case 1 -> maxProgress = pValue;
+                    case 2 -> owner = pValue == 1 ? "" : null;
+                    case 3 -> ownerName = pValue == 1 ? "" : null;
+                }
+            }
+
+            @Override
+            public int getCount() {
+                return 4;
+            }
+        };
+    }
 
     private ModEnergyStorage createEnergyStorage() {
         return new ModEnergyStorage(getEnergyCapacity(), getEnergyTransfer()) {
@@ -99,6 +135,8 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
         pTag.putInt("autoMinAmount", autoMinAmount);
         pTag.putDouble("autoPrice", autoPrice);
         pTag.putBoolean("autoNotify", autoNotify);
+        pTag.putInt("progress", progress);
+        pTag.putInt("maxProgress", maxProgress);
     }
 
     @Override
@@ -120,6 +158,8 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
         autoMinAmount = pTag.getInt("autoMinAmount");
         autoPrice = pTag.getDouble("autoPrice");
         autoNotify = pTag.getBoolean("autoNotify");
+        progress = pTag.getInt("progress");
+        maxProgress = pTag.getInt("maxProgress");
     }
 
     @Nullable
@@ -192,7 +232,7 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
 
     protected static final RawAnimation WORK = RawAnimation.begin().thenPlay("animation.model.work").thenLoop("animation.model.off");
     protected static final RawAnimation PLACED = RawAnimation.begin().thenPlay("animation.model.start").thenLoop("animation.model.off");
-    protected static final RawAnimation OFF = RawAnimation.begin().thenLoop("animation.model.off");
+    protected static final RawAnimation OFF = RawAnimation.begin().then("animation.model.off", Animation.LoopType.LOOP);
 
     protected AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
@@ -202,21 +242,18 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
     }
 
     protected <E extends GeoAnimatable> PlayState deployAnimController(final AnimationState<E> state) {
-        try{
-            if(level.isClientSide) {
+        try {
+            if (level.isClientSide) {
                 if (this.getBlockState().getValue(BaseMachineBlock.PLACED)) {
                     state.getController().setAnimation(PLACED);
-                    return PlayState.CONTINUE;
-                }
-                if (this.getBlockState().getValue(BaseMachineBlock.WORK)) {
+                }else if (this.getBlockState().getValue(BaseMachineBlock.WORK)) {
                     state.getController().setAnimation(WORK);
-                    state.setControllerSpeed(1.0f);
-                }else{
+                    state.getController().setAnimationSpeed(speed);
+                } else {
                     state.getController().setAnimation(OFF);
-                    state.setControllerSpeed(1.0f);
                 }
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return PlayState.CONTINUE;

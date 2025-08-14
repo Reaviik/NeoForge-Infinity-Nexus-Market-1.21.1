@@ -17,7 +17,7 @@ public class ModTab {
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, InfinityNexusMarket.MOD_ID);
     public static final Supplier<CreativeModeTab> INFINITY_TAB_MARKET = CREATIVE_MODE_TABS.register("infinity_nexus_market",
             //Tab Icon
-            () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModBlocksMarket.VENDING_MACHINE.get()))
+            () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModBlocksMarket.MARKET_MACHINE.get()))
                     .title(Component.translatable("itemGroup.infinity_nexus_market"))
                     .displayItems((pParameters, pOutput) -> {
                         //-------------------------//-------------------------//

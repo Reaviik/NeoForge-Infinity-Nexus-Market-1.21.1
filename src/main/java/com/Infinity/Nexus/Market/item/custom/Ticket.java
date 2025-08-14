@@ -36,6 +36,11 @@ public class Ticket extends Item {
                 itemStack.set(MarketDataComponents.TICKET_ITEM.get(), TicketItemComponent.fromItemStack(ticket.item_stack_nbt(), ticket.price(), ticket.sellerName(), "", !ticket.randomSeller()));
                 return InteractionResultHolder.success(itemStack);
             }
+
+            if (ticketStack.isEmpty()) {
+                return InteractionResultHolder.fail(player.getItemInHand(usedHand));
+            }
+
             ticketStack.setCount(1);
             String serializedTicket = DatabaseManager.serializeItemStack(ticketStack);
             itemStack.set(MarketDataComponents.TICKET_ITEM.get(), TicketItemComponent.fromItemStack(serializedTicket, 0, Component.translatable("item.infinity_nexus_market.ticket_anyone").getString(), "", true));
@@ -53,6 +58,7 @@ public class Ticket extends Item {
         if (Screen.hasShiftDown()) {
             if (!stack.has(MarketDataComponents.TICKET_ITEM.get())) {
                 components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_empty"));
+                components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_empty_description"));
                 return;
             }
 

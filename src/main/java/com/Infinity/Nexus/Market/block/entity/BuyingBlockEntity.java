@@ -19,7 +19,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -31,11 +30,6 @@ import java.util.UUID;
 public class BuyingBlockEntity extends AbstractMarketBlockEntity{
     private static final int TICKET_SLOT = 0;
     private static final int AUTO_SLOT = 1;
-    private static final String LOG_PREFIX = "[BuyingMachine] ";
-    private static final boolean DEBUG_MODE = false;
-
-    private int progress = 0;
-    private int maxProgress = ModConfigs.buyingTicksPerOperation;
     private DatabaseManager.MarketItemEntry lastFoundEntry = null;
 
     public BuyingBlockEntity(BlockPos pPos, BlockState pBlockState) {
@@ -82,37 +76,6 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity{
     }
 
     @Override
-    protected ContainerData createContainerData() {
-        return new ContainerData() {
-            @Override
-            public int get(int pIndex) {
-                return switch (pIndex) {
-                    case 0 -> progress;
-                    case 1 -> maxProgress;
-                    case 2 -> owner == null ? 0 : 1;
-                    case 3 -> ownerName == null ? 0 : 1;
-                    default -> 0;
-                };
-            }
-
-            @Override
-            public void set(int pIndex, int pValue) {
-                switch (pIndex) {
-                    case 0 -> progress = pValue;
-                    case 1 -> maxProgress = pValue;
-                    case 2 -> owner = pValue == 1 ? "" : null;
-                    case 3 -> ownerName = pValue == 1 ? "" : null;
-                }
-            }
-
-            @Override
-            public int getCount() {
-                return 4;
-            }
-        };
-    }
-
-    @Override
     protected int getEnergyCapacity() {
         return ModConfigs.buyingEnergyCapacity;
     }
@@ -135,11 +98,17 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity{
 
     public void tick(Level pLevel, BlockPos pPos, BlockState pState) {
         if (pLevel.isClientSide) return;
+        //System.out.println("tick:" + progress + "/" + maxProgress);
 
         if(progress < maxProgress) {
             progress++;
+            if(progress == maxProgress-1) {
+                level.setBlock(worldPosition, getBlockState().setValue(BaseMachineBlock.WORK, false).setValue(BaseMachineBlock.PLACED, false), 3);
+            }
             return;
         }
+
+        progress = 0;
 
         if (!autoEnabled) {
             return;
@@ -157,12 +126,13 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity{
             return;
         }
 
-        TicketItemComponent itemComponent = isValidTicket();
-        if (itemComponent == null) {
+        if (itemHandler.getStackInSlot(AUTO_SLOT).getCount() >= 64) {
             return;
         }
 
-        if (!ownerHasBalance(itemComponent.price())) {
+        TicketItemComponent itemComponent = isValidTicket();
+
+        if (itemComponent == null) {
             return;
         }
 
@@ -170,14 +140,24 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity{
             return;
         }
 
+
+        if (!ownerHasBalance(itemComponent.price())) {
+            return;
+        }
+
         processAutoBuy(itemComponent);
-        level.setBlock(getBlockPos(), getBlockState().setValue(BaseMachineBlock.WORK, true).setValue(BaseMachineBlock.PLACED, false), 3);
         progress = 0;
+        level.setBlock(pPos, pState.setValue(BaseMachineBlock.WORK, true), 3);
     }
 
-    private boolean slotAcceptItem(ItemStack itemStack) {
-        return ItemStackHandlerUtils.canInsertItemAndAmountIntoOutputSlot(
-                itemStack.getItem(), itemStack.getCount(), AUTO_SLOT, itemHandler);
+    private boolean slotAcceptItem(@Nullable ItemStack itemStack) {
+        return itemStack != null && !itemStack.isEmpty() &&
+                ItemStackHandlerUtils.canInsertItemAndAmountIntoOutputSlot(
+                        itemStack.getItem(),
+                        itemStack.getCount(),
+                        AUTO_SLOT,
+                        itemHandler
+                );
     }
 
     private boolean ownerHasBalance(double price) {
@@ -186,16 +166,19 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity{
 
     private TicketItemComponent isValidTicket() {
         ItemStack ticket = itemHandler.getStackInSlot(TICKET_SLOT);
-        if (!ticket.has(MarketDataComponents.TICKET_ITEM.get())) {
+        if (ticket.isEmpty() || !ticket.has(MarketDataComponents.TICKET_ITEM.get())) {
             return null;
         }
         TicketItemComponent itemComponent = ticket.get(MarketDataComponents.TICKET_ITEM.get());
-        return (itemComponent.price() > 0 && !itemComponent.toItemStack().isEmpty()) ? itemComponent : null;
+        return (itemComponent != null && itemComponent.price() > 0 && !itemComponent.toItemStack().isEmpty())
+                ? itemComponent
+                : null;
     }
 
     public void selfBuyInMarket(ServerPlayer player) {
         if (player == null) return;
         executeBuyTransaction(player, isValidTicket(), false);
+
     }
 
     public void processAutoBuy(TicketItemComponent itemComponent) {
@@ -345,6 +328,8 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity{
                         entry.currentPrice
                 );
             }
+        }else{
+            DatabaseManager.addPlayerBalance(SERVER_UUID.toString(), "Server", entry.currentPrice * quantity);
         }
 
         DatabaseManager.addSalesHistory(
@@ -396,9 +381,8 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity{
         );
     }
 
-    private void debugLog(String message) {
-        if (DEBUG_MODE && level != null && !level.isClientSide) {
-            level.getServer().getPlayerList().broadcastSystemMessage(Component.literal(LOG_PREFIX + message), false);
-        }
+    public ItemStack getRenderStack() {
+        if (itemHandler.getStackInSlot(AUTO_SLOT).isEmpty()) return ItemStack.EMPTY;
+        return itemHandler.getStackInSlot(AUTO_SLOT);
     }
 }

@@ -21,14 +21,11 @@ public class Listeners {
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
     }
     @SubscribeEvent
-    private static void onServerStarted(ServerStartedEvent event) {
+    private static void onServerStarted(ServerStartedEvent event) throws SQLException {
         InfinityNexusMarket.serverLevel = event.getServer().getLevel(Level.OVERWORLD);
 
         InfinityNexusMarket.LOGGER.info("§aInicializando sistema SQLite...");
-        try {
-            DatabaseManager.initialize();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        DatabaseManager.initialize();
+        ModEvents.anunciarTopBalances(event.getServer());
     }
 }

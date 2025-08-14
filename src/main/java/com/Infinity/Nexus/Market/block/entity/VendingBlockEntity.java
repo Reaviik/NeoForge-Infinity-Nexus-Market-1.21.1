@@ -1,5 +1,6 @@
 package com.Infinity.Nexus.Market.block.entity;
 
+import com.Infinity.Nexus.Market.block.custom.BaseMachineBlock;
 import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.itemStackHandler.RestrictedItemStackHandler;
 import com.Infinity.Nexus.Market.screen.seller.VendingMenu;
@@ -22,10 +23,14 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.bernie.geckolib.animatable.GeoAnimatable;
+import software.bernie.geckolib.animation.AnimationState;
+import software.bernie.geckolib.animation.PlayState;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,11 +42,7 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
     private static final Map<String, Item> ITEM_CACHE = new HashMap<>();
     private static final int MANUAL_SLOT = 0;
     private static final int AUTO_SLOT = 1;
-    private static final String LOG_PREFIX = "[VendingMachine] ";
-    private static final boolean DEBUG_MODE = false;
-
-    private int progress = 0;
-    private int maxProgress = ModConfigs.vendingTicksPerOperation;
+    private static ItemStack RENDER_STACK = ItemStack.EMPTY;
 
     public VendingBlockEntity(BlockPos pPos, BlockState pBlockState) {
         super(ModBlockEntities.VENDING_MACHINE_BE.get(), pPos, pBlockState, 2);
@@ -85,36 +86,6 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
         };
     }
 
-    @Override
-    protected ContainerData createContainerData() {
-        return new ContainerData() {
-            @Override
-            public int get(int pIndex) {
-                return switch (pIndex) {
-                    case 0 -> progress;
-                    case 1 -> maxProgress;
-                    case 2 -> owner == null ? 0 : 1;
-                    case 3 -> ownerName == null ? 0 : 1;
-                    default -> 0;
-                };
-            }
-
-            @Override
-            public void set(int pIndex, int pValue) {
-                switch (pIndex) {
-                    case 0 -> progress = pValue;
-                    case 1 -> maxProgress = pValue;
-                    case 2 -> owner = pValue == 1 ? "" : null;
-                    case 3 -> ownerName = pValue == 1 ? "" : null;
-                }
-            }
-
-            @Override
-            public int getCount() {
-                return 4;
-            }
-        };
-    }
 
     @Override
     protected int getEnergyCapacity() {
@@ -141,8 +112,19 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
 
         if(progress < maxProgress) {
             progress++;
+            if(progress == maxProgress-1) {
+                RENDER_STACK = itemHandler.getStackInSlot(AUTO_SLOT);
+                level.setBlock(worldPosition, getBlockState().setValue(BaseMachineBlock.WORK, false).setValue(BaseMachineBlock.PLACED, false), 3);
+            }
             return;
         }
+
+        if(itemHandler.getStackInSlot(AUTO_SLOT).isEmpty()) {
+            return;
+        }
+
+        progress = 0;
+
         if (pLevel.isClientSide) return;
         //if (getEnergyStored() < ModConfigs.vendingEnergyPerOperation) return;
 
@@ -150,6 +132,8 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
             //extractEnergy(ModConfigs.vendingEnergyPerOperation, false);
             progress = 0;
             autoPostSaleOnMarket();
+            RENDER_STACK = ItemStack.EMPTY;
+            level.setBlock(pPos, pState.setValue(BaseMachineBlock.WORK, true), 3);
         }
     }
 
@@ -211,7 +195,7 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
         if (!isServerItem && !validateMinimumPrice(itemNbt, preco)) {
             ServerPlayer ownerPlayer = level.getServer().getPlayerList().getPlayer(sellerUUID);
             if (ownerPlayer != null && autoNotify) {
-                double minPrice = DatabaseManager.getCurrentPriceForItem(itemNbt) * 0.5;
+                double minPrice = DatabaseManager.getCurrentPriceForItem(itemNbt) * ModConfigs.minimumPricePercentage;
                 ownerPlayer.displayClientMessage(
                         Component.translatable("message.infinity_nexus_market.price_too_low",
                                         ModConfigs.prefix,
@@ -333,10 +317,20 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
         if (owner.equals(SERVER_UUID.toString())) {
             return true;
         }
-        double serverPrice = DatabaseManager.getCurrentPriceForItem(itemNbt);
+
+        // Atualiza o cache se necessário
+        DatabaseManager.updateServerItemPriceCache();
+
+        // Verifica se o preço está no cache
+        Double serverPrice = DatabaseManager.SERVER_ITEM_PRICE_CACHE.get(itemNbt);
+        if (serverPrice == null) {
+            // Se não estiver no cache, busca no banco de dados e atualiza o cache
+            serverPrice = DatabaseManager.getCurrentPriceForItem(itemNbt);
+            DatabaseManager.SERVER_ITEM_PRICE_CACHE.put(itemNbt, serverPrice);
+        }
 
         // Permite apenas preços que sejam pelo menos 50% do preço do servidor
-        return price >= (serverPrice * 0.5);
+        return price >= (serverPrice * ModConfigs.minimumPricePercentage);
     }
 
     @Override
@@ -347,5 +341,10 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
             return;
         }
         super.setOwner(player);
+    }
+
+    public ItemStack getRenderStack() {
+        System.out.println(RENDER_STACK);
+        return RENDER_STACK;
     }
 }

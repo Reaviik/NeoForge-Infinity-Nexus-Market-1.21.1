@@ -79,6 +79,6 @@ public class InfinityNexusMarket {
         LOGGER.info(" §4_/ /§5/ /|  §9/ __/ _/ /§3/ /|  // /  §b/ /    / /  ");
         LOGGER.info("§4/___§5/_/ |_§9/_/   /___§3/_/ |_/___/ §b/_/    /_/   ");
         LOGGER.info("§b             Infinty Nexus Utils");
-        LOGGER.info("§f[§bMarket§f]: §cTempo de carregamento: {} ms", System.currentTimeMillis() - time);
+        LOGGER.info("§f[§bMarket§f]: §bTempo de carregamento: §c{} §bms", System.currentTimeMillis() - time);
     }
 }

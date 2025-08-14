@@ -28,8 +28,10 @@ public class SQLiteCommands {
         dispatcher.register(
             Commands.literal("market")
                 .requires(source -> source.hasPermission(4))
-                .then(Commands.literal("stats")
-                    .executes(SQLiteCommands::showStats))
+                    .then(Commands.literal("stats")
+                            .executes(SQLiteCommands::showStats))
+                    .then(Commands.literal("reload")
+                            .executes(SQLiteCommands::reloadDatabase))
                     .then(Commands.literal("clean")
                             .executes(SQLiteCommands::cleanCorruptedData))
                     .then(Commands.literal("itemlookup")
@@ -39,8 +41,30 @@ public class SQLiteCommands {
                     .then(Commands.literal("getItemByID")
                             .then(Commands.argument("entry_id", StringArgumentType.word())
                                     .executes(SQLiteCommands::acquireItem)))
+                    .then(Commands.literal("remove")
+                            .then(Commands.argument("item_or_mod_id", StringArgumentType.string())
+                                    .executes(SQLiteCommands::removeItemsByModOrId)))
+                    .then(Commands.literal("clearBalances")
+                            .executes(SQLiteCommands::clearAllBalances))
         );
     }
+
+    private static int reloadDatabase(CommandContext<CommandSourceStack> commandSourceStackCommandContext) {
+        CommandSourceStack source = commandSourceStackCommandContext.getSource();
+        if(!source.isPlayer() || !source.getPlayer().isCreative()){
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.console_only", ModConfigs.prefix));
+            return 0;
+        }
+        try {
+            DatabaseManager.reload();
+            source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.reload.success", ModConfigs.prefix), false);
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.reload.error", ModConfigs.prefix, e.getMessage()));
+            return 0;
+        }
+    }
+
     private static final SuggestionProvider<CommandSourceStack> ENTRY_ID_SUGGESTIONS =
             (context, builder) -> {
                 try {
@@ -65,6 +89,10 @@ public class SQLiteCommands {
             };
     private static int showStats(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
+        if(!source.isPlayer() || !source.getPlayer().isCreative()){
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.console_only", ModConfigs.prefix));
+            return 0;
+        }
         try {
             // Estatísticas básicas da database
             List<DatabaseManager.MarketItemEntry> playerSales = DatabaseManager.getAllPlayerSales();
@@ -87,6 +115,10 @@ public class SQLiteCommands {
 
     private static int cleanCorruptedData(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
+        if(!source.isPlayer() || !source.getPlayer().isCreative()){
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.console_only", ModConfigs.prefix));
+            return 0;
+        }
         try {
             DatabaseManager.cleanCorruptedData();
             source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.clean.success", ModConfigs.prefix), false);
@@ -99,6 +131,10 @@ public class SQLiteCommands {
 
     private static int itemLookupByEntryId(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
+        if(!source.isPlayer() || !source.getPlayer().isCreative()){
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.console_only", ModConfigs.prefix));
+            return 0;
+        }
         String entryId = StringArgumentType.getString(context, "entry_id");
 
         try {
@@ -145,10 +181,14 @@ public class SQLiteCommands {
 
     private static int acquireItem(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
+        if(!source.isPlayer() && !source.getPlayer().isCreative()){
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.player_only", ModConfigs.prefix));
+            return 0;
+        }
         String entryId = StringArgumentType.getString(context, "entry_id");
 
         if (!(source.getEntity() instanceof ServerPlayer player)) {
-            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.acquire.player_only", ModConfigs.prefix));
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.player_only", ModConfigs.prefix));
             return 0;
         }
 
@@ -201,6 +241,61 @@ public class SQLiteCommands {
             } catch (Exception e) {
                 InfinityNexusMarket.LOGGER.error("Erro ao atualizar cache de entry_ids", e);
             }
+        }
+    }
+    private static int removeItemsByModOrId(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        if(source.isPlayer()){
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.console_only", ModConfigs.prefix));
+            return 0;
+        }
+        String itemId = StringArgumentType.getString(context, "item_or_mod_id");
+
+        try {
+            // Verifica se é um ID completo (ex: mekanism:solar_panel) ou apenas namespace (ex: mekanism:)
+            boolean isFullId = itemId.contains(":") && itemId.split(":").length == 2;
+
+            int removedCount;
+            if (isFullId) {
+                // Remove itens com ID exato
+                removedCount = DatabaseManager.removeItemsByExactId(itemId);
+                source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.remove.success_exact",
+                        ModConfigs.prefix, removedCount, itemId), false);
+            } else {
+                // Remove todos os itens do mod especificado
+                String modNamespace = itemId.endsWith(":") ? itemId : itemId + ":";
+                removedCount = DatabaseManager.removeItemsByModNamespace(modNamespace);
+                source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.remove.success_mod",
+                        ModConfigs.prefix, removedCount, modNamespace), false);
+            }
+
+            if (removedCount == 0) {
+                source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.remove.not_found",
+                        ModConfigs.prefix, itemId));
+            }
+
+            return removedCount > 0 ? 1 : 0;
+        } catch (Exception e) {
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.remove.error",
+                    ModConfigs.prefix, e.getMessage()));
+            return 0;
+        }
+    }
+    private static int clearAllBalances(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        if(source.isPlayer()){
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.console_only", ModConfigs.prefix));
+            return 0;
+        }
+        try {
+            int deletedCount = DatabaseManager.clearAllPlayerBalances();
+            source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.clear_balances.success",
+                    ModConfigs.prefix, deletedCount), false);
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.clear_balances.error",
+                    ModConfigs.prefix, e.getMessage()));
+            return 0;
         }
     }
 }

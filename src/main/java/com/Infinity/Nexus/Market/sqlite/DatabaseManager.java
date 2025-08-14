@@ -1,11 +1,13 @@
 package com.Infinity.Nexus.Market.sqlite;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
+import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.item.ItemStack;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 
 import java.sql.*;
@@ -18,23 +20,30 @@ public class DatabaseManager {
     private static Connection conn = null;
     private static boolean isInitialized = false;
     private static boolean usingShadowDriver = false;
+    public static final Map<String, Double> SERVER_ITEM_PRICE_CACHE = new HashMap<>();
+    private static long lastCacheUpdate = 0;
+    private static final long CACHE_TTL = 5 * 60 * 1000;
 
     // Métodos auxiliares de tempo
-    // Método auxiliar para logar tempo de execução que retorna valor
     private static <R> R logExecutionTime(String methodName, Supplier<R> method) {
+        if (!isInitialized) return null;
         long startTime = System.nanoTime();
         R result = method.get();
-        long endTime = System.nanoTime();
-        System.out.println("[Debug] " + methodName + " executado em " + ((endTime - startTime) / 1_000_000.0) + " ms");
+        if(ModConfigs.debug) {
+            long endTime = System.nanoTime();
+            System.out.println("[Debug] " + methodName + " executado em " + ((endTime - startTime) / 1_000_000.0) + " ms");
+        }
         return result;
     }
 
-    // Método auxiliar para logar tempo de execução que não retorna valor
     private static void logExecutionTime(String methodName, Runnable method) {
+        if (!isInitialized) return;
         long startTime = System.nanoTime();
         method.run();
-        long endTime = System.nanoTime();
-        System.out.println("[Debug] " + methodName + " executado em " + ((endTime - startTime) / 1_000_000.0) + " ms");
+        if(ModConfigs.debug) {
+            long endTime = System.nanoTime();
+            System.out.println("[Debug] " + methodName + " executado em " + ((endTime - startTime) / 1_000_000.0) + " ms");
+        }
     }
 
     static {
@@ -42,15 +51,12 @@ public class DatabaseManager {
     }
 
     private static void loadDriverWithFallback() {
-        // 1. Primeiro tenta carregar a versão shadow
         try {
             Class.forName("com.infinity.nexus.shadow.mysql.cj.jdbc.Driver");
             usingShadowDriver = true;
             LOGGER.info("Driver MySQL (shadow) carregado com sucesso");
         } catch (ClassNotFoundException e) {
             LOGGER.warn("Driver MySQL (shadow) não encontrado, tentando versão padrão...");
-
-            // 2. Se falhar, tenta a versão padrão
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
                 usingShadowDriver = false;
@@ -60,7 +66,6 @@ public class DatabaseManager {
             }
         }
 
-        // Verificação adicional
         try {
             Driver driver = DriverManager.getDriver("jdbc:mysql://dummy");
             LOGGER.debug("Driver registrado: {}", driver.getClass().getName());
@@ -77,29 +82,35 @@ public class DatabaseManager {
             conn = DataSourceManager.getConnection();
             conn.setAutoCommit(false);
 
-            // Otimizações para MySQL
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("SET SESSION sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'");
             }
 
             createAllTables(conn);
+            updateServerItemPriceCache();
             isInitialized = true;
             LOGGER.info("Banco de dados MySQL inicializado com sucesso");
         } catch (SQLException e) {
             LOGGER.error("Falha ao conectar ao banco MySQL", e);
-            throw e;
+            isInitialized = false;
         }
     }
 
-    public static Connection getConnection() throws SQLException {
-        return DataSourceManager.getConnection();
+    public static Connection getConnection() {
+        if (!isInitialized) return null;
+        try {
+            return DataSourceManager.getConnection();
+        } catch (SQLException e) {
+            LOGGER.error("Falha ao obter conexão com o banco de dados", e);
+            return null;
+        }
     }
 
     private static void createAllTables(Connection conn) throws SQLException {
+        if (!isInitialized) return;
         logExecutionTime("createAllTables", () -> {
-            // 1. Tabela de saldos dos jogadores
             String createPlayerBalances = "CREATE TABLE IF NOT EXISTS player_balances (" +
-                    "uuid VARCHAR(36) PRIMARY KEY, " +  // Changed from TEXT
+                    "uuid VARCHAR(36) PRIMARY KEY, " +
                     "player_name VARCHAR(64) NOT NULL, " +
                     "balance DOUBLE DEFAULT 0.0, " +
                     "total_gasto DOUBLE DEFAULT 0.0, " +
@@ -111,11 +122,10 @@ public class DatabaseManager {
                     "last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" +
                     ") ENGINE=InnoDB;";
 
-            // 2. Tabela unificada de market
             String createMarketItems = "CREATE TABLE IF NOT EXISTS market_items (" +
-                    "id INT AUTO_INCREMENT PRIMARY KEY, " +  // Changed from AUTOINCREMENT
-                    "entry_id VARCHAR(36), " +  // Changed from TEXT
-                    "type ENUM('server', 'player') NOT NULL, " +  // Changed CHECK to ENUM
+                    "id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "entry_id VARCHAR(36), " +
+                    "type ENUM('server', 'player') NOT NULL, " +
                     "seller_uuid VARCHAR(36), " +
                     "seller_name VARCHAR(64), " +
                     "item_stack_nbt TEXT NOT NULL, " +
@@ -124,10 +134,9 @@ public class DatabaseManager {
                     "current_price DOUBLE NOT NULL, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
                     "last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, " +
-                    "is_active TINYINT(1) DEFAULT 1" +  // Changed from INTEGER
+                    "is_active TINYINT(1) DEFAULT 1" +
                     ") ENGINE=InnoDB;";
 
-            // 3. Tabela de histórico de vendas
             String createSalesHistory = "CREATE TABLE IF NOT EXISTS sales_history (" +
                     "id INT AUTO_INCREMENT PRIMARY KEY, " +
                     "item_stack_nbt TEXT NOT NULL, " +
@@ -138,7 +147,6 @@ public class DatabaseManager {
                     "transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ") ENGINE=InnoDB;";
 
-            // 4. Tabela de inflação
             String createInflationTable = "CREATE TABLE IF NOT EXISTS item_inflation (" +
                     "item_nbt TEXT NOT NULL, " +
                     "base_price DOUBLE NOT NULL, " +
@@ -153,20 +161,35 @@ public class DatabaseManager {
                 stmt.execute(createSalesHistory);
                 stmt.execute(createInflationTable);
             } catch (SQLException e) {
-                throw new RuntimeException(e);
+                LOGGER.error("Erro ao criar tabelas no banco de dados", e);
             }
         });
     }
 
-    // MÉTODOS PLAYER BALANCES
+    public static void reload() {
+        if (!isInitialized) return;
+        try {
+            conn.close();
+            isInitialized = false;
+            initialize();
+        } catch (SQLException e) {
+            LOGGER.error("Erro ao recarregar o banco de dados", e);
+        }
+    }
 
     public static double getPlayerBalance(String uuid) {
+        if (!isInitialized) return 0.0;
         return logExecutionTime("getPlayerBalance", () -> {
             try (Connection conn = getConnection();
                  PreparedStatement pstmt = conn.prepareStatement("SELECT balance FROM player_balances WHERE uuid = ?")) {
                 pstmt.setString(1, uuid);
                 ResultSet rs = pstmt.executeQuery();
-                return rs.next() ? rs.getDouble("balance") : 0.0;
+                if (rs.next()) {
+                    return rs.getDouble("balance");
+                } else {
+                    setPlayerBalance(uuid, "", 0.0);
+                    return 0.0;
+                }
             } catch (SQLException e) {
                 LOGGER.error("Erro ao buscar saldo do jogador", e);
                 return 0.0;
@@ -175,46 +198,59 @@ public class DatabaseManager {
     }
 
     public static void addPlayerBalance(String uuid, String name, double amount) {
+        if (!isInitialized) return;
         logExecutionTime("addPlayerBalance", () -> {
-            try {
-                double currentBalance = getPlayerBalance(uuid);
-                setPlayerBalance(uuid, name, currentBalance + amount);
-            } catch (Exception e) {
+            try (Connection conn = getConnection()) {
+                String updateSql = "INSERT INTO player_balances (uuid, player_name, balance) " +
+                        "VALUES (?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE " +
+                        "player_name = VALUES(player_name), " +
+                        "balance = balance + VALUES(balance)";
+
+                try (PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
+                    pstmt.setString(1, uuid);
+                    pstmt.setString(2, name == null ? "" : name);
+                    pstmt.setDouble(3, amount);
+                    pstmt.executeUpdate();
+                }
+            } catch (SQLException e) {
                 LOGGER.error("Erro ao adicionar saldo", e);
             }
         });
     }
 
     public static void setPlayerBalance(String uuid, String playerName, double balance) {
+        if (!isInitialized) return;
         logExecutionTime("setPlayerBalance", () -> {
-            try (Connection conn = getConnection();
-                 PreparedStatement pstmt = conn.prepareStatement(
-                         "INSERT INTO player_balances (uuid, player_name, balance, max_sales) " +
-                                 "VALUES (?, ?, ?, COALESCE((SELECT max_sales FROM player_balances WHERE uuid = ? LIMIT 1), 5)) " +
-                                 "ON DUPLICATE KEY UPDATE player_name = VALUES(player_name), balance = VALUES(balance)")) {
-                pstmt.setString(1, uuid);
-                pstmt.setString(2, playerName == null ? "" : playerName);
-                pstmt.setDouble(3, balance);
-                pstmt.setString(4, uuid);
-                pstmt.executeUpdate();
+            try (Connection conn = getConnection()) {
+                String updateSql = "INSERT INTO player_balances (uuid, player_name, balance, max_sales) " +
+                        "VALUES (?, ?, ?, COALESCE((SELECT max_sales FROM player_balances WHERE uuid = ?), 5)) " +
+                        "ON DUPLICATE KEY UPDATE " +
+                        "player_name = VALUES(player_name), " +
+                        "balance = VALUES(balance)";
+
+                try (PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
+                    pstmt.setString(1, uuid);
+                    pstmt.setString(2, playerName == null ? "" : playerName);
+                    pstmt.setDouble(3, balance);
+                    pstmt.setString(4, uuid);
+                    pstmt.executeUpdate();
+                }
             } catch (SQLException e) {
                 LOGGER.error("Erro ao definir saldo do jogador", e);
             }
         });
     }
 
-    public static Map<UUID, Double> getAllPlayerBalances() {
+    public static Map<String, Double> getAllPlayerBalances() {
+        if (!isInitialized) return new HashMap<>();
         return logExecutionTime("getAllPlayerBalances", () -> {
-            Map<UUID, Double> balances = new HashMap<>();
+            Map<String, Double> balances = new HashMap<>();
             try (Connection conn = getConnection();
                  Statement stmt = conn.createStatement();
-                 ResultSet rs = stmt.executeQuery("SELECT uuid, balance FROM player_balances")) {
+                 ResultSet rs = stmt.executeQuery("SELECT player_name, balance FROM player_balances")) {
                 while (rs.next()) {
-                    try {
-                        balances.put(UUID.fromString(rs.getString("uuid")), rs.getDouble("balance"));
-                    } catch (IllegalArgumentException e) {
-                        LOGGER.warn("UUID inválido encontrado: " + rs.getString("uuid"));
-                    }
+                    balances.put(rs.getString("player_name"), rs.getDouble("balance"));
                 }
             } catch (SQLException e) {
                 LOGGER.error("Erro ao buscar saldos", e);
@@ -224,6 +260,7 @@ public class DatabaseManager {
     }
 
     public static MarketItemEntry getMarketItemByStackAndPrice(ItemStack itemStack, double price, String sellerName, boolean randomSeller, String ownerName) {
+        if (!isInitialized) return null;
         return logExecutionTime("getMarketItemByStackAndPrice", () -> {
             if (getAllMarketItems().isEmpty()) {
                 return null;
@@ -243,8 +280,6 @@ public class DatabaseManager {
         });
     }
 
-    // MÉTODOS MARKET ITEMS
-
     public static class MarketItemEntry {
         public int id;
         public String entryId;
@@ -263,9 +298,9 @@ public class DatabaseManager {
     }
 
     public static boolean addOrUpdateMarketItem(String entryId, String type, String sellerUUID, String sellerName, ItemStack item, int quantity, double basePrice, double currentPrice) {
+        if (!isInitialized) return false;
         return logExecutionTime("addOrUpdateMarketItem", () -> {
             try (Connection conn = getConnection()) {
-                // Verifica se já existe um item ativo com o mesmo NBT e tipo
                 try (PreparedStatement checkStmt = conn.prepareStatement(
                         "SELECT entry_id, quantity FROM market_items WHERE item_stack_nbt = ? AND type = ? AND is_active = 1 LIMIT 1")) {
                     ItemStack copy = item.copy();
@@ -325,6 +360,7 @@ public class DatabaseManager {
     }
 
     public static List<MarketItemEntry> getMarketItems(String typeFilter) {
+        if (!isInitialized) return new ArrayList<>();
         return logExecutionTime("getMarketItems", () -> {
             List<MarketItemEntry> items = new ArrayList<>();
             try (Connection conn = getConnection()) {
@@ -358,6 +394,7 @@ public class DatabaseManager {
     }
 
     public static MarketItemEntry getMarketItemByEntryId(String entryId) {
+        if (!isInitialized) return null;
         return logExecutionTime("getMarketItemByEntryId", () -> {
             try (Connection conn = getConnection()) {
                 String query = "SELECT * FROM market_items WHERE entry_id = ? AND is_active = 1 LIMIT 1;";
@@ -372,7 +409,7 @@ public class DatabaseManager {
                             entry.sellerUUID = rs.getString("seller_uuid");
                             entry.sellerName = rs.getString("seller_name");
                             entry.itemId = rs.getString("item_stack_nbt");
-                            entry.itemName = ""; // preencher depois
+                            entry.itemName = "";
                             entry.itemNbt = rs.getString("item_stack_nbt");
                             entry.quantity = rs.getInt("quantity");
                             entry.basePrice = rs.getDouble("base_price");
@@ -392,6 +429,7 @@ public class DatabaseManager {
     }
 
     public static boolean removeMarketItem(String entryId) {
+        if (!isInitialized) return false;
         return logExecutionTime("removeMarketItem", () -> {
             try (Connection conn = getConnection()) {
                 try (PreparedStatement pstmt = conn.prepareStatement("UPDATE market_items SET is_active = 0 WHERE entry_id = ?")) {
@@ -405,9 +443,8 @@ public class DatabaseManager {
         });
     }
 
-    // MÉTODOS DE CONVENIÊNCIA
-
     public static boolean addPlayerSale(String sellerUUID, String sellerName, ItemStack item, int quantity, double price) {
+        if (!isInitialized) return false;
         return logExecutionTime("addPlayerSale", () -> {
             if (!canPlayerAddMoreSales(sellerUUID)) {
                 InfinityNexusMarket.LOGGER.warn("Jogador {} atingiu o limite máximo de vendas ({}/{})", sellerName, getPlayerCurrentSalesCount(sellerUUID), getPlayerMaxSales(sellerUUID));
@@ -418,26 +455,29 @@ public class DatabaseManager {
     }
 
     public static boolean addOrUpdateServerItem(String entryId, ItemStack item, double basePrice, double currentPrice) {
+        if (!isInitialized) return false;
         return logExecutionTime("addOrUpdateServerItem", () -> {
             return addOrUpdateMarketItem(entryId, "server", SERVER_UUID.toString(), "Server", item, 64, basePrice, currentPrice);
         });
     }
 
     public static List<MarketItemEntry> getAllPlayerSales() {
+        if (!isInitialized) return new ArrayList<>();
         return logExecutionTime("getAllPlayerSales", () -> getMarketItems("player"));
     }
 
     public static List<MarketItemEntry> getAllServerItems() {
+        if (!isInitialized) return new ArrayList<>();
         return logExecutionTime("getAllServerItems", () -> getMarketItems("server"));
     }
 
     public static List<MarketItemEntry> getAllMarketItems() {
+        if (!isInitialized) return new ArrayList<>();
         return logExecutionTime("getAllMarketItems", () -> getMarketItems(null));
     }
 
-    // SALES HISTORY
-
     public static boolean addSalesHistory(String itemId, int quantity, double price, String sellerUUID, String sellerName) {
+        if (!isInitialized) return false;
         return logExecutionTime("addSalesHistory", () -> {
             try (Connection conn = getConnection()) {
                 try (PreparedStatement pstmt = conn.prepareStatement(
@@ -459,6 +499,7 @@ public class DatabaseManager {
     }
 
     private static boolean isServerItem(String itemNbt) {
+        if (!isInitialized) return false;
         return logExecutionTime("isServerItem", () -> {
             try (Connection conn = getConnection()) {
                 try (PreparedStatement pstmt = conn.prepareStatement("SELECT 1 FROM market_items WHERE item_stack_nbt = ? AND type = 'server' LIMIT 1")) {
@@ -473,6 +514,7 @@ public class DatabaseManager {
     }
 
     public static Map<String, Integer> getSalesHistoryAndReset() {
+        if (!isInitialized) return new HashMap<>();
         return logExecutionTime("getSalesHistoryAndReset", () -> {
             Map<String, Integer> sales = new HashMap<>();
             try (Connection conn = getConnection()) {
@@ -489,9 +531,8 @@ public class DatabaseManager {
         });
     }
 
-    // OUTROS MÉTODOS (serialização, limpeza, atualização inflação, etc)
-
     public static String serializeItemStack(ItemStack item) {
+        if (!isInitialized) return "";
         return logExecutionTime("serializeItemStack", () -> {
             if (item == null || item.isEmpty()) return "";
             try {
@@ -501,13 +542,14 @@ public class DatabaseManager {
                 ).getOrThrow();
                 return json.toString();
             } catch (Exception e) {
-                LOGGER.error("Erro ao serializar ItemStack", e);
+                LOGGER.error("Erro ao serializar ItemStack {}", e.getMessage());
                 return "";
             }
         });
     }
 
     public static ItemStack deserializeItemStack(String jsonString) {
+        if (!isInitialized) return ItemStack.EMPTY;
         return logExecutionTime("deserializeItemStack", () -> {
             try {
                 if (jsonString == null || jsonString.isEmpty()) return ItemStack.EMPTY;
@@ -516,13 +558,19 @@ public class DatabaseManager {
                         JsonParser.parseString(jsonString)
                 ).getOrThrow();
             } catch (Exception e) {
-                LOGGER.error("Erro ao deserializar ItemStack", e);
+                LOGGER.error("Erro ao deserializar ItemStack: {}", e.getMessage());
+                String id = StringUtils.substringBetween(jsonString, "\"id\":\"", "\"");
+                if (id != null){
+                    String parts[] = id.split(":");
+                    LOGGER.error("Considere executar o comando /market remove <Mod {}: ou Item {}> id {}", parts[0], id, e.getMessage());
+                }
                 return ItemStack.EMPTY;
             }
         });
     }
 
     public static void cleanCorruptedData() {
+        if (!isInitialized) return;
         logExecutionTime("cleanCorruptedData", () -> {
             try (Connection conn = getConnection()) {
                 int deleted = conn.createStatement().executeUpdate(
@@ -537,6 +585,7 @@ public class DatabaseManager {
     }
 
     public static int cleanExpiredSales(int daysToExpire) {
+        if (!isInitialized) return 0;
         return logExecutionTime("cleanExpiredSales", () -> {
             try (Connection conn = getConnection()) {
                 int deleted = conn.createStatement().executeUpdate(
@@ -553,6 +602,7 @@ public class DatabaseManager {
     }
 
     public static void compactDatabase() {
+        if (!isInitialized) return;
         logExecutionTime("compactDatabase", () -> {
             try (Connection conn = getConnection()) {
                 conn.createStatement().execute("VACUUM;");
@@ -564,6 +614,7 @@ public class DatabaseManager {
     }
 
     public static String getSellerNameByEntryId(String entryId) {
+        if (!isInitialized) return null;
         return logExecutionTime("getSellerNameByEntryId", () -> {
             try (Connection conn = getConnection()) {
                 try (PreparedStatement pstmt = conn.prepareStatement("SELECT seller_name FROM market_items WHERE entry_id = ? LIMIT 1")) {
@@ -580,6 +631,7 @@ public class DatabaseManager {
     }
 
     public static String getSellerNameByEntryUUID(String entryId) {
+        if (!isInitialized) return null;
         return logExecutionTime("getSellerNameByEntryUUID", () -> {
             try (Connection conn = getConnection()) {
                 try (PreparedStatement pstmt = conn.prepareStatement("SELECT seller_name FROM market_items WHERE seller_uuid = ? LIMIT 1")) {
@@ -596,6 +648,7 @@ public class DatabaseManager {
     }
 
     public static void incrementPlayerStats(String uuid, double gasto, double ganho, int vendas, int compras) {
+        if (!isInitialized) return;
         logExecutionTime("incrementPlayerStats", () -> {
             try (Connection conn = getConnection()) {
                 try (PreparedStatement pstmt = conn.prepareStatement(
@@ -614,6 +667,7 @@ public class DatabaseManager {
     }
 
     public static int getPlayerMaxSales(String uuid) {
+        if (!isInitialized) return 5;
         return logExecutionTime("getPlayerMaxSales", () -> {
             if (uuid.equals(SERVER_UUID.toString())) {
                 return 500;
@@ -632,6 +686,7 @@ public class DatabaseManager {
     }
 
     public static void setPlayerMaxSales(String uuid, int maxSales) {
+        if (!isInitialized) return;
         logExecutionTime("setPlayerMaxSales", () -> {
             try (Connection conn = getConnection()) {
                 setPlayerBalance(uuid, null, getPlayerBalance(uuid));
@@ -647,6 +702,7 @@ public class DatabaseManager {
     }
 
     public static int getPlayerCurrentSalesCount(String uuid) {
+        if (!isInitialized) return 0;
         return logExecutionTime("getPlayerCurrentSalesCount", () -> {
             try (Connection conn = getConnection();
                  PreparedStatement pstmt = conn.prepareStatement("SELECT COUNT(*) as count FROM market_items WHERE type = 'player' AND seller_uuid = ? AND is_active = 1")) {
@@ -662,6 +718,7 @@ public class DatabaseManager {
     }
 
     public static boolean canPlayerAddMoreSales(String uuid) {
+        if (!isInitialized) return false;
         return logExecutionTime("canPlayerAddMoreSales", () -> {
             int current = getPlayerCurrentSalesCount(uuid);
             int max = getPlayerMaxSales(uuid);
@@ -670,6 +727,7 @@ public class DatabaseManager {
     }
 
     public static void applyServerInflation(String itemNbt, int quantityPurchased) {
+        if (!isInitialized) return;
         logExecutionTime("applyServerInflation", () -> {
             try (Connection conn = getConnection()) {
                 String baseItemId = extractBaseItemId(itemNbt);
@@ -695,6 +753,7 @@ public class DatabaseManager {
     }
 
     private static boolean isServerItemByBaseId(String baseItemId) {
+        if (!isInitialized) return false;
         return logExecutionTime("isServerItemByBaseId", () -> {
             try (Connection conn = getConnection();
                  PreparedStatement pstmt = conn.prepareStatement("SELECT 1 FROM market_items WHERE item_stack_nbt LIKE ? AND type = 'server' LIMIT 1")) {
@@ -708,6 +767,7 @@ public class DatabaseManager {
     }
 
     private static double getBasePriceForItemByBaseId(String baseItemId) {
+        if (!isInitialized) return 0.0;
         return logExecutionTime("getBasePriceForItemByBaseId", () -> {
             try (Connection conn =  getConnection()) {
                 PreparedStatement pstmt = conn.prepareStatement(
@@ -723,6 +783,7 @@ public class DatabaseManager {
     }
 
     public static double getCurrentPriceForItem(String itemNbt) {
+        if (!isInitialized) return 0.0;
         return logExecutionTime("getCurrentPriceForItem", () -> {
             try (Connection conn =  getConnection()) {
                 PreparedStatement pstmt = conn.prepareStatement(
@@ -743,9 +804,12 @@ public class DatabaseManager {
     }
 
     public static void updateInflationPrices() {
+        if (!isInitialized) return;
         logExecutionTime("updateInflationPrices", () -> {
             try (Connection conn = getConnection()) {
-                ResultSet rs = conn.createStatement().executeQuery("SELECT item_nbt, base_price, current_price, purchases_last_period FROM item_inflation");
+                ResultSet rs = conn.createStatement().executeQuery(
+                        "SELECT item_nbt, base_price, current_price, purchases_last_period FROM item_inflation");
+
                 while (rs.next()) {
                     String itemNbt = rs.getString("item_nbt");
                     double basePrice = rs.getDouble("base_price");
@@ -754,22 +818,25 @@ public class DatabaseManager {
 
                     double variation = 0;
                     if (purchases >= 1000) {
-                        variation = 0.0005; // +0.05%
+                        variation = 0.0005;
                     } else if (purchases == 0) {
-                        variation = -0.0005; // -0.05%
+                        variation = -0.0005;
                     }
 
                     double newPrice = currentPrice * (1 + variation);
                     newPrice = Math.max(basePrice * 0.8, Math.min(basePrice * 1.2, newPrice));
 
-                    try (PreparedStatement pstmt = conn.prepareStatement("UPDATE item_inflation SET current_price = ?, purchases_last_period = 0 WHERE item_nbt = ?")) {
+                    try (PreparedStatement pstmt = conn.prepareStatement(
+                            "UPDATE item_inflation SET current_price = ?, purchases_last_period = 0 WHERE item_nbt = ?")) {
                         pstmt.setDouble(1, newPrice);
                         pstmt.setString(2, itemNbt);
                         pstmt.executeUpdate();
                     }
 
+                    SERVER_ITEM_PRICE_CACHE.put(itemNbt, newPrice);
                     updateMarketItemPrice(itemNbt, newPrice);
                 }
+                updateServerItemPriceCache();
             } catch (SQLException e) {
                 LOGGER.error("Erro ao atualizar inflação", e);
             }
@@ -777,13 +844,14 @@ public class DatabaseManager {
     }
 
     private static String extractBaseItemId(String itemNbt) {
+        if (!isInitialized) return itemNbt;
         return logExecutionTime("extractBaseItemId", () -> {
             try {
                 JsonElement json = JsonParser.parseString(itemNbt);
                 if (json.isJsonObject()) {
                     JsonElement idElement = json.getAsJsonObject().get("id");
                     if (idElement != null) {
-                        return idElement.getAsString(); // Retorna "minecraft:item_id"
+                        return idElement.getAsString();
                     }
                 }
             } catch (Exception e) {
@@ -794,6 +862,7 @@ public class DatabaseManager {
     }
 
     private static double getBasePriceForItem(String itemNbt) {
+        if (!isInitialized) return 0.0;
         return logExecutionTime("getBasePriceForItem", () -> {
             try (Connection conn =  getConnection()) {
                 PreparedStatement pstmt = conn.prepareStatement(
@@ -814,6 +883,7 @@ public class DatabaseManager {
     }
 
     private static void updateMarketItemPrice(String baseItemId, double newPrice) {
+        if (!isInitialized) return;
         logExecutionTime("updateMarketItemPrice", () -> {
             try (Connection conn = getConnection()) {
                 PreparedStatement pstmt = conn.prepareStatement("UPDATE market_items SET current_price = ? WHERE item_stack_nbt LIKE ? AND type = 'server'");
@@ -827,12 +897,89 @@ public class DatabaseManager {
     }
 
     public static int getUpdatedItemsCount() {
+        if (!isInitialized) return 0;
         return logExecutionTime("getUpdatedItemsCount", () -> {
             try (Connection conn = getConnection()) {
                 ResultSet rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM item_inflation WHERE purchases_last_period > 0");
                 return rs.next() ? rs.getInt(1) : 0;
             } catch (SQLException e) {
                 LOGGER.error("Erro ao contar itens atualizados", e);
+                return 0;
+            }
+        });
+    }
+
+    public static void updateServerItemPriceCache() {
+        if (!isInitialized) return;
+
+        long now = System.currentTimeMillis();
+        if (now - lastCacheUpdate < CACHE_TTL && !SERVER_ITEM_PRICE_CACHE.isEmpty()) {
+            return;
+        }
+
+        SERVER_ITEM_PRICE_CACHE.clear();
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(
+                     "SELECT item_stack_nbt, current_price FROM market_items WHERE type = 'server'")) {
+
+            while (rs.next()) {
+                String itemNbt = rs.getString("item_stack_nbt");
+                double price = rs.getDouble("current_price");
+                SERVER_ITEM_PRICE_CACHE.put(itemNbt, price);
+            }
+            lastCacheUpdate = now;
+        } catch (SQLException e) {
+            LOGGER.error("Erro ao atualizar cache de preços do servidor", e);
+        }
+    }
+
+    public static int removeItemsByModNamespace(String modNamespace) {
+        if (!isInitialized) return 0;
+        return logExecutionTime("removeItemsByModNamespace", () -> {
+            try (Connection conn = getConnection()) {
+                // Remove itens onde o item_stack_nbt contém o namespace do mod
+                String sql = "DELETE FROM market_items WHERE item_stack_nbt LIKE ?";
+                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                    pstmt.setString(1, "%\"id\":\"" + modNamespace + "%");
+                    return pstmt.executeUpdate();
+                }
+            } catch (SQLException e) {
+                LOGGER.error("Erro ao remover itens por namespace do mod", e);
+                return 0;
+            }
+        });
+    }
+
+    public static int removeItemsByExactId(String fullItemId) {
+        if (!isInitialized) return 0;
+        return logExecutionTime("removeItemsByExactId", () -> {
+            try (Connection conn = getConnection()) {
+                // Remove itens onde o item_stack_nbt contém o ID exato do item
+                String sql = "DELETE FROM market_items WHERE item_stack_nbt LIKE ?";
+                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                    pstmt.setString(1, "%\"id\":\"" + fullItemId + "\"%");
+                    return pstmt.executeUpdate();
+                }
+            } catch (SQLException e) {
+                LOGGER.error("Erro ao remover itens por ID completo", e);
+                return 0;
+            }
+        });
+    }
+
+    public static int clearAllPlayerBalances() {
+        if (!isInitialized) return 0;
+        return logExecutionTime("clearAllPlayerBalances", () -> {
+            try (Connection conn = getConnection()) {
+                try (Statement stmt = conn.createStatement()) {
+                    int count = stmt.executeUpdate("DELETE FROM player_balances");
+                    conn.commit();
+                    LOGGER.info("Removed all player balances ({} records)", count);
+                    return count;
+                }
+            } catch (SQLException e) {
+                LOGGER.error("Error clearing player balances", e);
                 return 0;
             }
         });
