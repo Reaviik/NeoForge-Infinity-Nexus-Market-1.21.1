@@ -215,5 +215,7 @@
   "command.infinity_nexus_market.events.lottery.insufficient_funds": "§f[§bMARKET LOTTERY§f] Not enough funds in server to distribute!",
   "command.infinity_nexus_market.events.lottery.winner_message": "§f[§bMARKET LOTTERY§f] You won §a%.2f§f in the weekly lottery! (Position %d)",
   "command.infinity_nexus_market.events.lottery.results_header": "§f[§bMARKET LOTTERY§f] This week's winners are:",
-  "command.infinity_nexus_market.events.lottery.winner_entry": "§e%dº §b%s §f- §a%.2f§f"
+  "command.infinity_nexus_market.events.lottery.winner_entry": "§e%dº §b%s §f- §a%.2f§f",
+  "command.infinity_nexus_market.events.lottery.announcement": "§b> §fLottery enabled!\n§b> §fTip /market lottery to join!",
+  "command.infinity_nexus_market.events.lottery.announcement_jackpot": "§b> §fJackpot: §e%.2f§f"
 }

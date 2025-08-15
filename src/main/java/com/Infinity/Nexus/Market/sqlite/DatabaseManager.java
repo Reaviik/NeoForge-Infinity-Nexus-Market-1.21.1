@@ -16,7 +16,7 @@ import java.util.function.Supplier;
 
 public class DatabaseManager {
     private static final Logger LOGGER = InfinityNexusMarket.LOGGER;
-    private static final UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
+    public static final UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
     private static Connection conn = null;
     private static boolean isInitialized = false;
     private static boolean usingShadowDriver = false;

@@ -31,9 +31,9 @@ public class ModEvents {
     public static Map<String, Double> previousTopPositions = new HashMap<>();
     public static Map<String, Double> previousTopBalances = new HashMap<>();
     private static long lastLotteryCheck = 0;
-    private static final long LOTTERY_CHECK_INTERVAL = 60 * 20;
+    private static final long LOTTERY_CHECK_INTERVAL = 15 * 60 * 20;
     private static boolean lotteryFired = false;
-    private static final boolean isDay = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY;
+    public static final boolean isDay = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY;
     private static final UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
 
     @SubscribeEvent
@@ -71,12 +71,17 @@ public class ModEvents {
         }
 
         // Verifica se é hora do sorteio (Sábado 17:50)
-        if (isDay && !lotteryFired && ModConfigs.lotteryEnabled && gameTime - lastLotteryCheck >= LOTTERY_CHECK_INTERVAL) {
+        if (isDay && !lotteryFired && ModConfigs.lotteryEnabled) {
             lastLotteryCheck = gameTime;
             Calendar cal = Calendar.getInstance();
 
-            if (cal.get(Calendar.HOUR_OF_DAY) == 15 && cal.get(Calendar.MINUTE) > 50 && cal.get(Calendar.MINUTE) < 59) {
+            if (cal.get(Calendar.HOUR_OF_DAY) == 17 && cal.get(Calendar.MINUTE) > 50 && cal.get(Calendar.MINUTE) < 59) {
                 distributeLottery(server);
+                return;
+            }
+            if (cal.get(Calendar.HOUR_OF_DAY) > 8 && cal.get(Calendar.HOUR_OF_DAY) < 17 && gameTime - lastLotteryCheck >= LOTTERY_CHECK_INTERVAL) {
+                loteryAnnouncement(server);
+                return;
             }
         }
 
@@ -88,6 +93,8 @@ public class ModEvents {
             }
         }
     }
+
+
 
     private static void processDynamicInflation(MinecraftServer server) {
         DatabaseManager.updateInflationPrices();
@@ -201,7 +208,15 @@ public class ModEvents {
             InfinityNexusMarket.LOGGER.error(Component.translatable("command.infinity_nexus_market.events.top_balances.failed", e.getMessage()).getString());
         }
     }
-
+    private static void loteryAnnouncement(MinecraftServer server) {
+        List<ServerPlayer> players = server.getPlayerList().getPlayers(); // Obtenha a lista de jogadores online>
+        for (ServerPlayer player : players) {
+            player.displayClientMessage(Component.literal("=== LOTERIA ==="), false);
+            player.displayClientMessage(Component.translatable("command.infinity_nexus_market.events.lottery.announcement"), false);
+            player.displayClientMessage(Component.translatable("command.infinity_nexus_market.events.lottery.announcement_jackpot", formatBalance(DatabaseManager.getPlayerBalance(SERVER_UUID.toString()))), false);
+            player.displayClientMessage(Component.literal("==============="), false);
+        }
+    }
     private static void distributeLottery(MinecraftServer server) {
         List<String> participants = LotteryManager.getParticipants();
         if (participants.isEmpty()) {

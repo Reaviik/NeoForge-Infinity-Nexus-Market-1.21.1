@@ -5,7 +5,6 @@ import com.Infinity.Nexus.Market.events.ModEvents;
 import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.ChatFormatting;
@@ -67,7 +66,7 @@ public class Balance {
 
     public static int add(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
-        if(source.isPlayer() && !source.getPlayer().hasPermissions(4)){
+        if (source.isPlayer() && !source.getPlayer().hasPermissions(4)) {
             source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.no_permission", ModConfigs.prefix));
             return 0;
         }
@@ -76,19 +75,34 @@ public class Balance {
             double amount = DoubleArgumentType.getDouble(context, "amount");
 
             for (var profile : targets) {
-                double currentBalance = DatabaseManager.getPlayerBalance(profile.getId().toString());
-                DatabaseManager.addPlayerBalance(profile.getId().toString(), profile.getName(), amount);
+                String targetUUID = profile.getId().toString();
+                String targetName = profile.getName();
+
+                // Verifica se é o servidor (case-insensitive)
+                if (targetName.equalsIgnoreCase("server")) {
+                    targetUUID = DatabaseManager.SERVER_UUID.toString();
+                    targetName = "Server"; // Padroniza o nome
+                }
+
+                double currentBalance = DatabaseManager.getPlayerBalance(targetUUID);
+                DatabaseManager.addPlayerBalance(targetUUID, targetName, amount);
+
+                String finalTargetName = targetName;
                 source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.balance.add.success",
                         ModConfigs.prefix,
                         amount,
-                        profile.getName(),
-                        (currentBalance + amount)), false);
-                Player target = source.getServer().getPlayerList().getPlayer(profile.getId());
-                if (target != null) {
-                    target.sendSystemMessage(Component.translatable("command.infinity_nexus_market.sqlite.balance.add.success_receiver",
-                            ModConfigs.prefix,
-                            amount,
-                            (currentBalance + amount)));
+                        finalTargetName,
+                        formatBalance(currentBalance + amount)), false);
+
+                // Notifica apenas jogadores reais (não aplicável ao servidor)
+                if (!targetUUID.equals(DatabaseManager.SERVER_UUID.toString())) {
+                    Player targetPlayer = source.getServer().getPlayerList().getPlayer(profile.getId());
+                    if (targetPlayer != null) {
+                        targetPlayer.sendSystemMessage(Component.translatable("command.infinity_nexus_market.sqlite.balance.add.success_receiver",
+                                ModConfigs.prefix,
+                                formatBalance(amount),
+                                formatBalance(currentBalance + amount)));
+                    }
                 }
             }
             return 1;
@@ -100,7 +114,7 @@ public class Balance {
 
     public static int remove(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        if(source.isPlayer() && !source.getPlayer().hasPermissions(4)){
+        if (source.isPlayer() && !source.getPlayer().hasPermissions(4)) {
             source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.no_permission", ModConfigs.prefix));
             return 0;
         }
@@ -109,26 +123,39 @@ public class Balance {
             double amount = DoubleArgumentType.getDouble(context, "amount");
 
             for (var profile : targets) {
-                double currentBalance = DatabaseManager.getPlayerBalance(profile.getId().toString());
+                String targetUUID = profile.getId().toString();
+                String targetName = profile.getName();
+
+                if (targetName.equalsIgnoreCase("server")) {
+                    targetUUID = DatabaseManager.SERVER_UUID.toString();
+                    targetName = "Server";
+                }
+
+                double currentBalance = DatabaseManager.getPlayerBalance(targetUUID);
                 if (currentBalance >= amount) {
-                    DatabaseManager.setPlayerBalance(profile.getId().toString(), profile.getName(), currentBalance - amount);
+                    DatabaseManager.setPlayerBalance(targetUUID, targetName, currentBalance - amount);
+                    String finalTargetName = targetName;
                     source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.balance.remove.success",
                             ModConfigs.prefix,
                             amount,
-                            profile.getName(),
-                            (currentBalance - amount)), false);
-                    Player target = source.getServer().getPlayerList().getPlayer(profile.getId());
-                    if (target != null) {
-                        target.sendSystemMessage(Component.translatable("command.infinity_nexus_market.sqlite.balance.remove.success_removed",
-                                ModConfigs.prefix,
-                                amount,
-                                profile.getName(),
-                                (currentBalance - amount)));
+                            finalTargetName,
+                            formatBalance(currentBalance - amount)), false);
+
+                    // Notifica apenas jogadores reais
+                    if (!targetUUID.equals(DatabaseManager.SERVER_UUID.toString())) {
+                        Player targetPlayer = source.getServer().getPlayerList().getPlayer(profile.getId());
+                        if (targetPlayer != null) {
+                            targetPlayer.sendSystemMessage(Component.translatable("command.infinity_nexus_market.sqlite.balance.remove.success_removed",
+                                    ModConfigs.prefix,
+                                    formatBalance(amount),
+                                    targetName,
+                                    formatBalance(currentBalance - amount)));
+                        }
                     }
                 } else {
                     source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.balance.remove.insufficient",
                             ModConfigs.prefix,
-                            profile.getName(),
+                            targetName,
                             currentBalance));
                 }
             }
@@ -141,7 +168,7 @@ public class Balance {
 
     public static int set(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        if(source.isPlayer() && !source.getPlayer().hasPermissions(4)){
+        if (source.isPlayer() && !source.getPlayer().hasPermissions(4)) {
             source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.no_permission", ModConfigs.prefix));
             return 0;
         }
@@ -150,18 +177,31 @@ public class Balance {
             double amount = DoubleArgumentType.getDouble(context, "amount");
 
             for (var profile : targets) {
-                DatabaseManager.setPlayerBalance(profile.getId().toString(), profile.getName(), amount);
+                String targetUUID = profile.getId().toString();
+                String targetName = profile.getName();
+
+                if (targetName.equalsIgnoreCase("server")) {
+                    targetUUID = DatabaseManager.SERVER_UUID.toString();
+                    targetName = "Server";
+                }
+
+                DatabaseManager.setPlayerBalance(targetUUID, targetName, amount);
+                String finalTargetName = targetName;
                 source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.balance.set.success",
                         ModConfigs.prefix,
-                        profile.getName(),
-                        amount), false);
-                Player target = source.getServer().getPlayerList().getPlayer(profile.getId());
-                if (target != null) {
-                    target.sendSystemMessage(Component.translatable("command.infinity_nexus_market.sqlite.balance.set.success_set",
-                            ModConfigs.prefix,
-                            amount,
-                            profile.getName(),
-                            (amount)));
+                        finalTargetName,
+                        formatBalance(amount)), false);
+
+                // Notifica apenas jogadores reais
+                if (!targetUUID.equals(DatabaseManager.SERVER_UUID.toString())) {
+                    Player targetPlayer = source.getServer().getPlayerList().getPlayer(profile.getId());
+                    if (targetPlayer != null) {
+                        targetPlayer.sendSystemMessage(Component.translatable("command.infinity_nexus_market.sqlite.balance.set.success_set",
+                                ModConfigs.prefix,
+                                amount,
+                                targetName,
+                                formatBalance(amount)));
+                    }
                 }
             }
             return 1;

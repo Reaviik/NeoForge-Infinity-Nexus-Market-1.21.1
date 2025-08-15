@@ -1,6 +1,7 @@
 package com.Infinity.Nexus.Market.utils;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
+import com.Infinity.Nexus.Market.events.ModEvents;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import net.minecraft.network.chat.Component;
@@ -49,8 +50,10 @@ public class LotteryManager {
     }
 
     public static void addParticipant(ServerPlayer player) {
-        System.out.println(player.getName().getString());
-        System.out.println(participants);
+        if(!ModEvents.isDay){
+            player.sendSystemMessage(Component.literal("§cA loteria não esta aberta hoje!"));
+            return;
+        }
         if (!participants.contains(player.getName().getString())) {
             participants.add(player.getName().getString());
             saveParticipants();

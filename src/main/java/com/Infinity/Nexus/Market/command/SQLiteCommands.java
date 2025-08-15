@@ -283,7 +283,7 @@ public class SQLiteCommands {
     }
     private static int clearAllBalances(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        if(source.isPlayer()){
+        if(!source.isPlayer()){
             source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.console_only", ModConfigs.prefix));
             return 0;
         }
