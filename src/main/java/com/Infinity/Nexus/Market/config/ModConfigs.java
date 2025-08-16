@@ -22,6 +22,7 @@ public class ModConfigs {
     private static final ModConfigSpec.DoubleValue MIN_PRICE_PERCENTAGE = BUILDER.comment("Define the minimum price percentage of the item prince can player sell above server items price (ex: 0.5 = 50%), 1.0 same as server, this value make server auto buy player items if match").defineInRange("minimum_price_percentage", 0.5, 0.001, 1.0);
     private static final ModConfigSpec.ConfigValue<Boolean> LOTTERY = BUILDER.comment("Defines if the lottery is enabled, this occurs once a week at 15:50 in Sanday").define("lottery_enabled",true);
     private static final ModConfigSpec.IntValue TOP_BALANCE_INTERVAL = BUILDER.comment("Defines the interval in minutes to check the top balances. Set to 0 to disable").defineInRange("top_balance_interval", 15, 1, 120);
+    private static final ModConfigSpec.IntValue START_PLAYER_AMOUNT = BUILDER.comment("Defines the amount of coins for player start").defineInRange("start_player_amount", 5000, 1, Integer.MAX_VALUE);
     //Database
     private static final ModConfigSpec.ConfigValue<String> DB_IP = BUILDER.comment("IP do banco de dados").define("db_ip", "127.0.0.1");
     private static final ModConfigSpec.IntValue DB_PORT = BUILDER.comment("Porta do banco de dados").defineInRange("db_port", 3306, 1, 65535);
@@ -73,6 +74,7 @@ public class ModConfigs {
     public static double minimumPricePercentage;
     public static boolean lotteryEnabled;
     public static int topBalanceInterval;
+    public static int startPlayerAmount;
     //-----------------------------------------------Database-----------------------------------------------//
     public static String dbIp;
     public static int dbPort;
@@ -117,6 +119,7 @@ public class ModConfigs {
         minimumPricePercentage = MIN_PRICE_PERCENTAGE.get();
         lotteryEnabled = LOTTERY.get();
         topBalanceInterval = TOP_BALANCE_INTERVAL.get();
+        startPlayerAmount = START_PLAYER_AMOUNT.get();
         //-----------------------------------------------Database-----------------------------------------------//
         dbIp = DB_IP.get();
         dbPort = DB_PORT.get();

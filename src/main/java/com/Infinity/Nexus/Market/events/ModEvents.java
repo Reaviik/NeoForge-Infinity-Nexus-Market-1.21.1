@@ -18,7 +18,6 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.server.command.ConfigCommand;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static com.Infinity.Nexus.Market.command.response.Balance.formatBalance;
 

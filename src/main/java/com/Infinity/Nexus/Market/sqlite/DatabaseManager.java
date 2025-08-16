@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.RegistryOps;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -278,6 +279,21 @@ public class DatabaseManager {
                     .findFirst()
                     .orElse(null);
         });
+    }
+
+    public static void applyFirstAccountAmount(ServerPlayer serverPlayer) {
+        Map<String, Double> accounts = getAllPlayerBalances();
+        if(accounts.isEmpty()){
+            return;
+        }
+
+        String playerName = serverPlayer.getName().getString();
+        if(accounts.containsKey(playerName)){
+            return;
+        }
+        String uuid = serverPlayer.getStringUUID();
+        InfinityNexusMarket.LOGGER.info("§bGiving a first amount of coins to {}", serverPlayer.getName().getString());
+        addPlayerBalance(uuid, playerName, ModConfigs.startPlayerAmount);
     }
 
     public static class MarketItemEntry {
