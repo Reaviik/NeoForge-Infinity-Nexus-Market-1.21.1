@@ -7,8 +7,6 @@ import com.Infinity.Nexus.Market.screen.BaseAbstractContainerMenu;
 import com.Infinity.Nexus.Market.screen.ModMenuTypes;
 import com.Infinity.Nexus.Market.slots.InputSlot;
 import com.Infinity.Nexus.Market.slots.ResultSlot;
-import com.Infinity.Nexus.Market.utils.HasEnergyStorage;
-import com.Infinity.Nexus.Market.utils.ModEnergyStorage;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -17,10 +15,9 @@ import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.level.Level;
 
-public class VendingMenu extends BaseAbstractContainerMenu implements HasEnergyStorage {
+public class VendingMenu extends BaseAbstractContainerMenu {
     public final VendingBlockEntity blockEntity;
     private final Level level;
-    private ModEnergyStorage energyStorage;
     private final ContainerData data;
     private static final int slots = 2;
 
@@ -32,7 +29,6 @@ public class VendingMenu extends BaseAbstractContainerMenu implements HasEnergyS
         super(ModMenuTypes.VENDING_MENU.get(), pContainerId, slots);
         checkContainerSize(inv, slots);
         blockEntity = entity;
-        energyStorage = (ModEnergyStorage) blockEntity.getEnergyStorage();
         level = inv.player.level();
         this.data = data;
 
@@ -48,10 +44,6 @@ public class VendingMenu extends BaseAbstractContainerMenu implements HasEnergyS
 
     public VendingBlockEntity getBlockEntity(){
         return blockEntity;
-    }
-    @Override
-    public ModEnergyStorage getEnergyStorage() {
-        return energyStorage;
     }
 
     public Level getLevel() {

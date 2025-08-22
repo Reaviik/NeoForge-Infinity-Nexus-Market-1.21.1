@@ -15,7 +15,7 @@
       "item": "minecraft:crafter"
     },
     "E": {
-      "item": "minecraft:blue_stained_glass"
+      "item": "minecraft:green_stained_glass"
     }
   },
   "pattern": [
@@ -24,7 +24,7 @@
     "BDB"
   ],
   "result": {
-    "id": "infinity_nexus_market:vending_machine",
+    "id": "infinity_nexus_market:buying_machine",
     "count": 1
   },
   "show_notification": true

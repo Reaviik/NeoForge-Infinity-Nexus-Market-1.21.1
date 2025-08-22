@@ -1,8 +1,6 @@
 package com.Infinity.Nexus.Market.events;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
-import com.Infinity.Nexus.Market.command.MarketCommands;
-import com.Infinity.Nexus.Market.command.SQLiteCommands;
 import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.sqlite.DatabaseManager;
 import com.Infinity.Nexus.Market.utils.LotteryManager;
@@ -13,9 +11,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.neoforge.server.command.ConfigCommand;
 
 import java.util.*;
 
@@ -30,17 +26,11 @@ public class ModEvents {
     public static Map<String, Double> previousTopPositions = new HashMap<>();
     public static Map<String, Double> previousTopBalances = new HashMap<>();
     private static long lastLotteryCheck = 0;
-    private static final long LOTTERY_CHECK_INTERVAL = 15 * 60 * 20;
+    private static final long LOTTERY_ANNOUNCE_INTERVAL = 15 * 60 * 20;
+    private static final int LOTTERY_HOUR = 17;
+    private static final int LOTTERY_MINUTE = 50;
     private static boolean lotteryFired = false;
     public static final boolean isDay = Calendar.getInstance().get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY;
-    private static final UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
-
-    @SubscribeEvent
-    public static void onCommandRegister(RegisterCommandsEvent event) {
-        MarketCommands.register(event.getDispatcher());
-        SQLiteCommands.register(event.getDispatcher());
-        ConfigCommand.register(event.getDispatcher());
-    }
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
@@ -69,18 +59,32 @@ public class ModEvents {
             }
         }
 
-        // Verifica se é hora do sorteio (Sábado 17:50)
-        if (isDay && !lotteryFired && ModConfigs.lotteryEnabled) {
-            lastLotteryCheck = gameTime;
+        if (ModConfigs.lotteryEnabled) {
             Calendar cal = Calendar.getInstance();
 
-            if (cal.get(Calendar.HOUR_OF_DAY) == 17 && cal.get(Calendar.MINUTE) > 50 && cal.get(Calendar.MINUTE) < 59) {
-                distributeLottery(server);
-                return;
+            // Verifica se é sábado
+            boolean isSaturday = cal.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY;
+
+            // Anúncios regulares (a cada 15 minutos durante o dia)
+            if (isSaturday && cal.get(Calendar.HOUR_OF_DAY) >= 8 && cal.get(Calendar.HOUR_OF_DAY) < 18) {
+                if (gameTime - lastLotteryCheck >= LOTTERY_ANNOUNCE_INTERVAL) {
+                    lastLotteryCheck = gameTime;
+                    loteryAnnouncement(server);
+                }
             }
-            if (cal.get(Calendar.HOUR_OF_DAY) > 8 && cal.get(Calendar.HOUR_OF_DAY) < 17 && gameTime - lastLotteryCheck >= LOTTERY_CHECK_INTERVAL) {
-                loteryAnnouncement(server);
-                return;
+
+            // Verificação do horário do sorteio (17:50)
+            if (isSaturday && !lotteryFired &&
+                    cal.get(Calendar.HOUR_OF_DAY) == LOTTERY_HOUR &&
+                    cal.get(Calendar.MINUTE) == LOTTERY_MINUTE) {
+
+                distributeLottery(server);
+                lotteryFired = true;
+            }
+
+            // Reset do flag lotteryFired após o sábado
+            if (!isSaturday) {
+                lotteryFired = false;
             }
         }
 
@@ -212,7 +216,7 @@ public class ModEvents {
         for (ServerPlayer player : players) {
             player.displayClientMessage(Component.literal("=== LOTERIA ==="), false);
             player.displayClientMessage(Component.translatable("command.infinity_nexus_market.events.lottery.announcement"), false);
-            player.displayClientMessage(Component.translatable("command.infinity_nexus_market.events.lottery.announcement_jackpot", formatBalance(DatabaseManager.getPlayerBalance(SERVER_UUID.toString()))), false);
+            player.displayClientMessage(Component.translatable("command.infinity_nexus_market.events.lottery.announcement_jackpot", formatBalance(DatabaseManager.getPlayerBalance(InfinityNexusMarket.SERVER_UUID.toString()))), false);
             player.displayClientMessage(Component.literal("==============="), false);
         }
     }
@@ -227,7 +231,7 @@ public class ModEvents {
         }
 
         // Pega o saldo do servidor
-        double serverBalance = DatabaseManager.getPlayerBalance(SERVER_UUID.toString());
+        double serverBalance = DatabaseManager.getPlayerBalance(InfinityNexusMarket.SERVER_UUID.toString());
         if (serverBalance <= 0) {
             server.getPlayerList().broadcastSystemMessage(
                     Component.translatable("command.infinity_nexus_market.events.lottery.insufficient_funds")
@@ -261,7 +265,7 @@ public class ModEvents {
         }
 
         // Remove o dinheiro do servidor
-        DatabaseManager.setPlayerBalance(SERVER_UUID.toString(), "Server", 0);
+        DatabaseManager.setPlayerBalance(InfinityNexusMarket.SERVER_UUID.toString(), "Server", 0);
 
         // Limpa os participantes
         LotteryManager.clearParticipants();

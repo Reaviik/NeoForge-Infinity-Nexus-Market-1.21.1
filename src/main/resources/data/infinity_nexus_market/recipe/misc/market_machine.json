@@ -1,0 +1,37 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "minecraft:diamond"
+    },
+    "B": {
+      "item": "minecraft:end_crystal"
+    },
+    "C": {
+      "item": "minecraft:lapis_lazuli"
+    },
+    "D": {
+      "item": "minecraft:redstone"
+    },
+    "E": {
+      "item": "minecraft:emerald"
+    },
+    "F": {
+      "item": "minecraft:polished_basalt"
+    },
+    "G": {
+      "item": "minecraft:lightning_rod"
+    }
+  },
+  "pattern": [
+    "ABC",
+    "DED",
+    "FGF"
+  ],
+  "result": {
+    "id": "infinity_nexus_market:market_machine",
+    "count": 1
+  },
+  "show_notification": true
+}

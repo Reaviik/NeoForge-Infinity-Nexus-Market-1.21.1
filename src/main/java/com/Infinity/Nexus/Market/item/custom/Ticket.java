@@ -64,7 +64,7 @@ public class Ticket extends Item {
 
             TicketItemComponent ticket = stack.get(MarketDataComponents.TICKET_ITEM.get());
             ItemStack ticketStack = ticket.toItemStack();
-            components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_content",ticketStack.getCount(),ticketStack.getHoverName()));
+            components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_content", ticketStack.getCount(), ticketStack.getHoverName()));
             components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_price", ticket.price()));
             components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_random_seller", ticket.randomSeller() ? "Yes" : "No"));
             components.add(Component.translatable("tooltip.infinity_nexus_market.ticket_seller", ticket.randomSeller() ? Component.translatable("item.infinity_nexus_market.ticket_anyone").getString() : ticket.sellerName()));

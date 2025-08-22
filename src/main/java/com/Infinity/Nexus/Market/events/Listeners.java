@@ -17,8 +17,6 @@ public class Listeners {
     @SubscribeEvent
     private static void onServerStarted(ServerStartedEvent event) throws SQLException {
         InfinityNexusMarket.serverLevel = event.getServer().getLevel(Level.OVERWORLD);
-
-        InfinityNexusMarket.LOGGER.info("§aInicializando sistema SQLite...");
         DatabaseManager.initialize();
         ModEvents.anunciarTopBalances(event.getServer());
     }

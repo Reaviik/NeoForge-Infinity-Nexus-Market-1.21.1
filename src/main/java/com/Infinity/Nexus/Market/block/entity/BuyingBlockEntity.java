@@ -1,5 +1,6 @@
 package com.Infinity.Nexus.Market.block.entity;
 
+import com.Infinity.Nexus.Market.InfinityNexusMarket;
 import com.Infinity.Nexus.Market.block.custom.BaseMachineBlock;
 import com.Infinity.Nexus.Market.component.MarketDataComponents;
 import com.Infinity.Nexus.Market.component.TicketItemComponent;
@@ -76,16 +77,6 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity{
     }
 
     @Override
-    protected int getEnergyCapacity() {
-        return ModConfigs.buyingEnergyCapacity;
-    }
-
-    @Override
-    protected int getEnergyTransfer() {
-        return ModConfigs.buyingEnergyTransfer;
-    }
-
-    @Override
     public Component getDisplayName() {
         return Component.translatable("block.infinity_nexus_market.buying_machine");
     }
@@ -114,9 +105,6 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity{
             return;
         }
 
-        //if(getEnergyStored() < ModConfigs.buyingTicksPerOperation){
-        //    return;
-        //}
 
         if (owner == null || ownerName == null) {
             return;
@@ -183,8 +171,6 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity{
 
     public void processAutoBuy(TicketItemComponent itemComponent) {
         if (owner == null) return;
-
-        //extractEnergy(ModConfigs.buyingEnergyPerOperation, false);
         executeBuyTransaction(null, itemComponent, true);
     }
 
@@ -329,7 +315,7 @@ public class BuyingBlockEntity extends AbstractMarketBlockEntity{
                 );
             }
         }else{
-            DatabaseManager.addPlayerBalance(SERVER_UUID.toString(), "Server", entry.currentPrice * quantity);
+            DatabaseManager.addPlayerBalance(InfinityNexusMarket.SERVER_UUID.toString(), "Server", entry.currentPrice * quantity);
         }
 
         DatabaseManager.addSalesHistory(

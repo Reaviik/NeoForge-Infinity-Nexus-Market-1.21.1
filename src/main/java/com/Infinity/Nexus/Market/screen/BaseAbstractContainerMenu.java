@@ -1,7 +1,4 @@
-package com.Infinity.Nexus.Market.screen;//
-// Source code recreated from a .class file by IntelliJ IDEA
-// (powered by FernFlower decompiler)
-//
+package com.Infinity.Nexus.Market.screen;
 
 
 import net.minecraft.network.chat.Component;
@@ -15,13 +12,6 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 public class BaseAbstractContainerMenu extends AbstractContainerMenu {
-    private static final int HOTBAR_SLOT_COUNT = 9;
-    private static final int PLAYER_INVENTORY_ROW_COUNT = 3;
-    private static final int PLAYER_INVENTORY_COLUMN_COUNT = 9;
-    private static final int PLAYER_INVENTORY_SLOT_COUNT = 27;
-    private static final int VANILLA_SLOT_COUNT = 36;
-    private static final int VANILLA_FIRST_SLOT_INDEX = 0;
-    private static final int TE_INVENTORY_FIRST_SLOT_INDEX = 36;
     private static int TE_INVENTORY_SLOT_COUNT;
 
     protected BaseAbstractContainerMenu(@Nullable MenuType<?> menuType, int containerId, int invSize) {

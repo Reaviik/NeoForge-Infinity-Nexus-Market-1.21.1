@@ -5,6 +5,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.EnchantedBookItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.neoforge.common.Tags;
 
 import java.util.function.Predicate;
@@ -18,7 +19,8 @@ public class MarketFilterManager {
         BLOCK("Block", stack -> stack.getItem() instanceof BlockItem),
         FOOD("Food", stack -> stack.has(DataComponents.FOOD)),
         POTION("Potion", stack -> stack.is(Tags.Items.POTIONS)),
-        ENCHANTED("Enchants", stack -> stack.getItem() instanceof EnchantedBookItem);
+        ENCHANTED("Enchants", stack -> stack.getItem() instanceof EnchantedBookItem),
+        MACHINES("Machines", stack -> stack.getItem().getDescriptionId().contains("modular_machinery_reborn"));
 
         private final String name;
         private final Predicate<ItemStack> predicate;

@@ -67,16 +67,6 @@ public class MarketBlockEntity extends AbstractMarketBlockEntity {
     }
 
     @Override
-    protected int getEnergyCapacity() {
-        return 0;
-    }
-
-    @Override
-    protected int getEnergyTransfer() {
-        return 0;
-    }
-
-    @Override
     public Component getDisplayName() {
         return Component.translatable("block.infinity_nexus_market.market_machine");
     }

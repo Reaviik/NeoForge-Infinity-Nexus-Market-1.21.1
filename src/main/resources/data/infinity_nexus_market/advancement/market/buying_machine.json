@@ -1,0 +1,33 @@
+{
+  "parent": "infinity_nexus_market:market/ticket",
+  "criteria": {
+    "has_buying_machine": {
+      "conditions": {
+        "items": [
+          {
+            "items": "infinity_nexus_market:buying_machine"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+  "description": {
+    "translate": "item.infinity_nexus_market.buying_machine_description"
+  },
+  "icon": {
+    "count": 1,
+    "id": "infinity_nexus_market:buying_machine"
+  },
+  "title": {
+    "translate": "advancement.infinity_nexus_market.buying_machine"
+  }
+},
+  "requirements": [
+    [
+      "has_buying_machine"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

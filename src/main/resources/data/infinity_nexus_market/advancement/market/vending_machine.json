@@ -1,11 +1,11 @@
 {
   "parent": "infinity_nexus_market:market/root",
   "criteria": {
-    "has_miner": {
+    "has_vending_machine": {
       "conditions": {
         "items": [
           {
-            "items": "infinity_nexus_market:vending_machine_miner_upgrade"
+            "items": "infinity_nexus_market:vending_machine"
           }
         ]
       },
@@ -14,19 +14,19 @@
   },
   "display": {
   "description": {
-    "translate": "advancement.infinity_nexus_market.miner_description"
+    "translate": "item.infinity_nexus_market.vending_machine_description"
   },
   "icon": {
     "count": 1,
-    "id": "infinity_nexus_market:planter_upgrade"
+    "id": "infinity_nexus_market:vending_machine"
   },
   "title": {
-    "translate": "advancement.infinity_nexus_market.miner"
+    "translate": "advancement.infinity_nexus_market.vending_machine"
   }
 },
   "requirements": [
     [
-      "has_miner"
+      "has_vending_machine"
     ]
   ],
   "sends_telemetry_event": true

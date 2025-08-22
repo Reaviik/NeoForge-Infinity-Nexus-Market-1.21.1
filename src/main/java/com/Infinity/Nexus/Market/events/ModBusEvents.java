@@ -16,9 +16,6 @@ public class ModBusEvents {
     @SubscribeEvent
     public static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.VENDING_MACHINE_BE.get(), VendingBlockEntity::getItemHandler);
-        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.VENDING_MACHINE_BE.get(), VendingBlockEntity::getEnergyStorage);
-
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.BUYING_MACHINE_BE.get(), BuyingBlockEntity::getItemHandler);
-        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.BUYING_MACHINE_BE.get(), BuyingBlockEntity::getEnergyStorage);
     }
 }

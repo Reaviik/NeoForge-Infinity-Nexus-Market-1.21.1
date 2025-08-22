@@ -1,5 +1,6 @@
 package com.Infinity.Nexus.Market.screen.market;
 
+import com.Infinity.Nexus.Market.InfinityNexusMarket;
 import com.Infinity.Nexus.Market.networking.ModMessages;
 import com.Infinity.Nexus.Market.networking.packet.*;
 import com.Infinity.Nexus.Market.screen.market.functions.MarketFilterManager;
@@ -25,7 +26,6 @@ import java.util.stream.Collectors;
 
 public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath("infinity_nexus_market", "textures/gui/market_gui.png");
-    private static final UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
     private static List<MarketSalesSyncS2CPacket.SaleEntryDTO> clientSales = new ArrayList<>();
 
     private List<MarketSalesSyncS2CPacket.SaleEntryDTO> sales;
@@ -458,7 +458,7 @@ public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
         if (searchQuery.startsWith("#")) {
             String sellerSearch = searchQuery.substring(1).toLowerCase();
             if (entry.seller != null) {
-                if (SERVER_UUID.toString().equals(entry.seller)) {
+                if (InfinityNexusMarket.SERVER_UUID.toString().equals(entry.seller)) {
                     return "server".contains(sellerSearch);
                 }
                 return entry.sellerName != null &&
@@ -482,7 +482,7 @@ public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
         if (viewMode == 2) { // "Itens do Servidor"
             return searchMatch &&
                     entry.seller != null &&
-                    entry.seller.equals(SERVER_UUID.toString());
+                    entry.seller.equals(InfinityNexusMarket.SERVER_UUID.toString());
         }
         return searchMatch; // "Todos"
     }
@@ -544,7 +544,7 @@ public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
                         176, 0,
                         SLOT_SIZE, SLOT_SIZE);
 
-                if (SERVER_UUID.toString().equals(entry.seller)) {
+                if (InfinityNexusMarket.SERVER_UUID.toString().equals(entry.seller)) {
                     guiGraphics.fill(entryX+1, entryY+1, entryX + SLOT_SIZE-1, entryY + SLOT_SIZE-1, 0x40FFFF00);
                 }
 
@@ -555,7 +555,7 @@ public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
                 int xPos = entryX + 13 - (textWidth - this.font.width("1"));
                 guiGraphics.pose().pushPose();
                 guiGraphics.pose().translate(0, 0, 200);
-                int color = SERVER_UUID.toString().equals(entry.seller) ? 0x00FFFF00 : 0x00FFFFFF;
+                int color = InfinityNexusMarket.SERVER_UUID.toString().equals(entry.seller) ? 0x00FFFF00 : 0x00FFFFFF;
                 guiGraphics.drawString(this.font, quantityText, xPos, entryY + 9, color, true);
                 guiGraphics.pose().popPose();
 
@@ -612,7 +612,7 @@ public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
 
         if (entry.seller != null) {
             String sellerName;
-            if (SERVER_UUID.toString().equals(entry.seller)) {
+            if (InfinityNexusMarket.SERVER_UUID.toString().equals(entry.seller)) {
                 sellerName = Component.translatable("gui.infinity_nexus_market.server_name")
                         .withStyle(ChatFormatting.YELLOW)
                         .getString();

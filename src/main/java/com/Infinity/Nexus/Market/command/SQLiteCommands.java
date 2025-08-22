@@ -24,10 +24,10 @@ public class SQLiteCommands {
     private static long lastCacheUpdate = 0;
     private static final long CACHE_DURATION_MS = 30000;
 
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+    public SQLiteCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
-            Commands.literal("market")
-                .requires(source -> source.hasPermission(4))
+            Commands.literal("marketAdmin")
+                .requires(source -> source.hasPermission(2))
                     .then(Commands.literal("stats")
                             .executes(SQLiteCommands::showStats))
                     .then(Commands.literal("reload")

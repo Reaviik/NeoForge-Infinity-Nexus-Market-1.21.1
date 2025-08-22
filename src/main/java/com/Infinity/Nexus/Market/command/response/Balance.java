@@ -352,6 +352,24 @@ public class Balance {
             return 0;
         }
     }
+    public static int getSelfMaxSales(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        try {
+                var profile = context.getSource().getPlayer();
+                int maxSales = DatabaseManager.getPlayerMaxSales(profile.getStringUUID());
+                int currentSales = DatabaseManager.getPlayerCurrentSalesCount(profile.getStringUUID());
+                source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.sqlite.balance.get_max_sales",
+                        ModConfigs.prefix,
+                        profile.getName(),
+                        currentSales,
+                        maxSales), false);
+                return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.translatable("command.infinity_nexus_market.sqlite.balance.get_max_sales.error",
+                    ModConfigs.prefix));
+            return 0;
+        }
+    }
 
     public static int removeMaxSales(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
@@ -428,7 +446,7 @@ public class Balance {
         try {
             // Verifica se temos dados salvos
             if (ModEvents.previousTopBalances.isEmpty()) {
-                source.sendFailure(Component.literal("§cNenhum ranking disponível ainda. Aguarde o próximo ciclo de atualização."));
+                source.sendFailure(Component.translatable("command.infinity_nexus_market.no_ranking", ModConfigs.prefix));
                 return 0;
             }
 
@@ -441,7 +459,7 @@ public class Balance {
                     .limit(10)
                     .collect(Collectors.toList());
 
-            source.sendSuccess(() -> Component.literal("§6§l=== TOP 10 SALDOS ==="), false);
+            source.sendSuccess(() -> Component.translatable("command.infinity_nexus_market.events.top_balances.header"), false);
 
             String[] rankColors = {
                     "§6§l", // 1º - Ouro

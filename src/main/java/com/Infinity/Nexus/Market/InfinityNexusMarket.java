@@ -29,10 +29,12 @@ import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import org.slf4j.Logger;
 
 import java.sql.SQLException;
+import java.util.UUID;
 
 @Mod(InfinityNexusMarket.MOD_ID)
 public class InfinityNexusMarket {
     long time = System.currentTimeMillis();
+    public static final UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
     public static final String MOD_ID = "infinity_nexus_market";
     public static final Logger LOGGER = LogUtils.getLogger();
     public static ServerLevel serverLevel;

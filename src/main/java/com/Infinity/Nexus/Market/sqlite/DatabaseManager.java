@@ -52,34 +52,35 @@ public class DatabaseManager {
     }
 
     private static void loadDriverWithFallback() {
+        LOGGER.info("§aFinding jdbc Driver...");
         try {
             Class.forName("com.infinity.nexus.shadow.mysql.cj.jdbc.Driver");
             usingShadowDriver = true;
-            LOGGER.info("Driver MySQL (shadow) carregado com sucesso");
+            LOGGER.info("§eDriver MySQL Shadow loaded successfully");
         } catch (ClassNotFoundException e) {
-            LOGGER.warn("Driver MySQL (shadow) não encontrado, tentando versão padrão...");
+            LOGGER.warn("§cDriver MySQL Shadow no find, searching default version...");
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
                 usingShadowDriver = false;
-                LOGGER.info("Driver MySQL (padrão) carregado com sucesso");
+                LOGGER.info("§eDriver MySQL Default loaded successfully");
             } catch (ClassNotFoundException ex) {
-                LOGGER.error("Falha ao carregar ambos os drivers MySQL (shadow e padrão)");
+                LOGGER.error("§cFail for any MySQL Drive load!");
             }
         }
 
         try {
             Driver driver = DriverManager.getDriver("jdbc:mysql://dummy");
-            LOGGER.debug("Driver registrado: {}", driver.getClass().getName());
+            LOGGER.debug("§eDriver registered: {}", driver.getClass().getName());
         } catch (SQLException e) {
-            LOGGER.error("Falha ao verificar driver registrado", e);
+            LOGGER.error("§cFail to verify registered drives.", e);
         }
     }
 
     public static void initialize() throws SQLException {
         if (isInitialized) return;
-
+        LOGGER.info("§aStarting SQLite database...");
         try {
-            LOGGER.debug("Estabelecendo conexão com o banco MySQL...");
+            LOGGER.debug("§aEstablishing MySQL Drive connection...");
             conn = DataSourceManager.getConnection();
             conn.setAutoCommit(false);
 
@@ -90,9 +91,9 @@ public class DatabaseManager {
             createAllTables(conn);
             updateServerItemPriceCache();
             isInitialized = true;
-            LOGGER.info("Banco de dados MySQL inicializado com sucesso");
+            LOGGER.info("§eDatabase MySQL started successfully");
         } catch (SQLException e) {
-            LOGGER.error("Falha ao conectar ao banco MySQL", e);
+            LOGGER.error("§cFail to connect MySQL database.", e);
             isInitialized = false;
         }
     }
@@ -102,7 +103,7 @@ public class DatabaseManager {
         try {
             return DataSourceManager.getConnection();
         } catch (SQLException e) {
-            LOGGER.error("Falha ao obter conexão com o banco de dados", e);
+            LOGGER.error("§cFail to get database connection.", e);
             return null;
         }
     }
@@ -162,7 +163,7 @@ public class DatabaseManager {
                 stmt.execute(createSalesHistory);
                 stmt.execute(createInflationTable);
             } catch (SQLException e) {
-                LOGGER.error("Erro ao criar tabelas no banco de dados", e);
+                LOGGER.error("§cErro while create database tables.", e);
             }
         });
     }
@@ -174,7 +175,7 @@ public class DatabaseManager {
             isInitialized = false;
             initialize();
         } catch (SQLException e) {
-            LOGGER.error("Erro ao recarregar o banco de dados", e);
+            LOGGER.error("§cError to load database.", e);
         }
     }
 
@@ -192,7 +193,7 @@ public class DatabaseManager {
                     return 0.0;
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao buscar saldo do jogador", e);
+                LOGGER.error("§cError we get player balance.", e);
                 return 0.0;
             }
         });
@@ -215,7 +216,7 @@ public class DatabaseManager {
                     pstmt.executeUpdate();
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao adicionar saldo", e);
+                LOGGER.error("§cErroe we add player balance.", e);
             }
         });
     }
@@ -238,7 +239,7 @@ public class DatabaseManager {
                     pstmt.executeUpdate();
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao definir saldo do jogador", e);
+                LOGGER.error("§cError we define player balance.", e);
             }
         });
     }
@@ -254,7 +255,7 @@ public class DatabaseManager {
                     balances.put(rs.getString("player_name"), rs.getDouble("balance"));
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao buscar saldos", e);
+                LOGGER.error("§cError we find balances", e);
             }
             return balances;
         });
@@ -292,7 +293,7 @@ public class DatabaseManager {
             return;
         }
         String uuid = serverPlayer.getStringUUID();
-        InfinityNexusMarket.LOGGER.info("§bGiving a first amount of coins to {}", serverPlayer.getName().getString());
+        LOGGER.info("§bGiving a first amount of coins to {}", serverPlayer.getName().getString());
         addPlayerBalance(uuid, playerName, ModConfigs.startPlayerAmount);
     }
 
@@ -369,7 +370,7 @@ public class DatabaseManager {
                     }
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao adicionar/atualizar item", e);
+                LOGGER.error("§cError we add/actualize item.", e);
                 return false;
             }
         });
@@ -403,7 +404,7 @@ public class DatabaseManager {
                     }
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao buscar itens", e);
+                LOGGER.error("§cError we find items.", e);
             }
             return items;
         });
@@ -453,7 +454,7 @@ public class DatabaseManager {
                     return pstmt.executeUpdate() > 0;
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao remover item", e);
+                LOGGER.error("§cError we remove item.", e);
                 return false;
             }
         });
@@ -463,7 +464,7 @@ public class DatabaseManager {
         if (!isInitialized) return false;
         return logExecutionTime("addPlayerSale", () -> {
             if (!canPlayerAddMoreSales(sellerUUID)) {
-                InfinityNexusMarket.LOGGER.warn("Jogador {} atingiu o limite máximo de vendas ({}/{})", sellerName, getPlayerCurrentSalesCount(sellerUUID), getPlayerMaxSales(sellerUUID));
+                LOGGER.warn("§cPlayer {} reach max limit of sells ({}/{})", sellerName, getPlayerCurrentSalesCount(sellerUUID), getPlayerMaxSales(sellerUUID));
                 return false;
             }
             return addOrUpdateMarketItem(UUID.randomUUID().toString(), "player", sellerUUID, sellerName, item, quantity, price, price);
@@ -508,7 +509,7 @@ public class DatabaseManager {
                     return success;
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao adicionar histórico", e);
+                LOGGER.error("§cError we add sale history.", e);
                 return false;
             }
         });
@@ -523,27 +524,9 @@ public class DatabaseManager {
                     return pstmt.executeQuery().next();
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao verificar item do servidor", e);
+                LOGGER.error("§cErro we verify server item.", e);
                 return false;
             }
-        });
-    }
-
-    public static Map<String, Integer> getSalesHistoryAndReset() {
-        if (!isInitialized) return new HashMap<>();
-        return logExecutionTime("getSalesHistoryAndReset", () -> {
-            Map<String, Integer> sales = new HashMap<>();
-            try (Connection conn = getConnection()) {
-                try (ResultSet rs = conn.createStatement().executeQuery("SELECT item_stack_nbt, SUM(quantity) as total_quantity FROM sales_history GROUP BY item_stack_nbt")) {
-                    while (rs.next()) {
-                        sales.put(rs.getString("item_stack_nbt"), rs.getInt("total_quantity"));
-                    }
-                }
-                conn.createStatement().execute("DELETE FROM sales_history;");
-            } catch (SQLException e) {
-                LOGGER.error("Erro ao buscar histórico", e);
-            }
-            return sales;
         });
     }
 
@@ -558,7 +541,7 @@ public class DatabaseManager {
                 ).getOrThrow();
                 return json.toString();
             } catch (Exception e) {
-                LOGGER.error("Erro ao serializar ItemStack {}", e.getMessage());
+                LOGGER.error("§cErro we Serialize ItemStack {}", e.getMessage());
                 return "";
             }
         });
@@ -574,11 +557,11 @@ public class DatabaseManager {
                         JsonParser.parseString(jsonString)
                 ).getOrThrow();
             } catch (Exception e) {
-                LOGGER.error("Erro ao deserializar ItemStack: {}", e.getMessage());
+                LOGGER.error("§cErro we Deserialize ItemStack: {}", e.getMessage());
                 String id = StringUtils.substringBetween(jsonString, "\"id\":\"", "\"");
                 if (id != null){
                     String parts[] = id.split(":");
-                    LOGGER.error("Considere executar o comando /market remove <Mod {}: ou Item {}> id {}", parts[0], id, e.getMessage());
+                    LOGGER.error("§cConsider execute the command /market remove <Mod {}: or Item {}> id {}", parts[0], id, e.getMessage());
                 }
                 return ItemStack.EMPTY;
             }
@@ -592,10 +575,10 @@ public class DatabaseManager {
                 int deleted = conn.createStatement().executeUpdate(
                         "DELETE FROM market_items WHERE entry_id NOT LIKE '%-%-%-%-%' OR entry_id LIKE 'player_%' OR entry_id LIKE 'server_%'");
                 if (deleted > 0) {
-                    InfinityNexusMarket.LOGGER.info("Removidos " + deleted + " registros corrompidos");
+                    LOGGER.info("§cRemoved " + deleted + " corrupted registries.");
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao limpar dados", e);
+                LOGGER.error("§cErro we clean dates.", e);
             }
         });
     }
@@ -607,11 +590,11 @@ public class DatabaseManager {
                 int deleted = conn.createStatement().executeUpdate(
                         "DELETE FROM market_items WHERE type = 'player' AND is_active = 1 AND created_at < datetime('now', '-" + daysToExpire + " days');");
                 if (deleted > 0) {
-                    InfinityNexusMarket.LOGGER.info("Removidas " + deleted + " vendas expiradas");
+                    LOGGER.info("§cRemoved " + deleted + " expired sells.");
                 }
                 return deleted;
             } catch (SQLException e) {
-                LOGGER.error("Erro ao limpar vendas", e);
+                LOGGER.error("§cErro we clean expired sells.", e);
                 return 0;
             }
         });
@@ -622,27 +605,10 @@ public class DatabaseManager {
         logExecutionTime("compactDatabase", () -> {
             try (Connection conn = getConnection()) {
                 conn.createStatement().execute("VACUUM;");
-                InfinityNexusMarket.LOGGER.info("Database compactada");
+                LOGGER.info("§cDatabase compacted.");
             } catch (SQLException e) {
-                LOGGER.error("Erro ao compactar", e);
+                LOGGER.error("§cError we compact database", e);
             }
-        });
-    }
-
-    public static String getSellerNameByEntryId(String entryId) {
-        if (!isInitialized) return null;
-        return logExecutionTime("getSellerNameByEntryId", () -> {
-            try (Connection conn = getConnection()) {
-                try (PreparedStatement pstmt = conn.prepareStatement("SELECT seller_name FROM market_items WHERE entry_id = ? LIMIT 1")) {
-                    pstmt.setString(1, entryId);
-                    try (ResultSet rs = pstmt.executeQuery()) {
-                        if (rs.next()) return rs.getString("seller_name");
-                    }
-                }
-            } catch (SQLException e) {
-                LOGGER.error("Erro ao buscar vendedor", e);
-            }
-            return null;
         });
     }
 
@@ -657,7 +623,7 @@ public class DatabaseManager {
                     }
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao buscar vendedor", e);
+                LOGGER.error("§cError we find seller.", e);
             }
             return null;
         });
@@ -677,7 +643,7 @@ public class DatabaseManager {
                     pstmt.executeUpdate();
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao atualizar estatísticas", e);
+                LOGGER.error("§cErro we actualize stats.", e);
             }
         });
     }
@@ -695,7 +661,7 @@ public class DatabaseManager {
                     if (rs.next()) return rs.getInt("max_sales");
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao buscar limite de vendas", e);
+                LOGGER.error("§cError we find sells limit.", e);
             }
             return 5;
         });
@@ -712,7 +678,7 @@ public class DatabaseManager {
                     pstmt.executeUpdate();
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao definir limite de vendas", e);
+                LOGGER.error("§cError we define sells limit.", e);
             }
         });
     }
@@ -727,7 +693,7 @@ public class DatabaseManager {
                     if (rs.next()) return rs.getInt("count");
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao contar vendas do jogador", e);
+                LOGGER.error("§cError we count player sells.", e);
             }
             return 0;
         });
@@ -763,7 +729,7 @@ public class DatabaseManager {
                     pstmt.executeUpdate();
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao registrar compra para inflação", e);
+                LOGGER.error("§cError we register buy for infraction.", e);
             }
         });
     }
@@ -776,7 +742,7 @@ public class DatabaseManager {
                 pstmt.setString(1, "%\"" + baseItemId + "\"%");
                 return pstmt.executeQuery().next();
             } catch (SQLException e) {
-                LOGGER.error("Erro ao verificar item do servidor", e);
+                LOGGER.error("§cError we verify server item.", e);
                 return false;
             }
         });
@@ -792,7 +758,7 @@ public class DatabaseManager {
                 ResultSet rs = pstmt.executeQuery();
                 return rs.next() ? rs.getDouble(1) : 0.0;
             } catch (SQLException e) {
-                InfinityNexusMarket.LOGGER.error("Erro ao buscar preço base", e);
+                LOGGER.error("§cError we get base prince.", e);
                 return 0.0;
             }
         });
@@ -813,7 +779,7 @@ public class DatabaseManager {
                     return getBasePriceForItem(itemNbt);
                 }
             } catch (SQLException e) {
-                InfinityNexusMarket.LOGGER.error("Erro ao buscar preço atual", e);
+                LOGGER.error("§cError we get actually price.", e);
                 return 0.0;
             }
         });
@@ -854,7 +820,7 @@ public class DatabaseManager {
                 }
                 updateServerItemPriceCache();
             } catch (SQLException e) {
-                LOGGER.error("Erro ao atualizar inflação", e);
+                LOGGER.error("§cError we actualize infraction.", e);
             }
         });
     }
@@ -871,7 +837,7 @@ public class DatabaseManager {
                     }
                 }
             } catch (Exception e) {
-                LOGGER.error("Erro ao extrair ID base do item", e);
+                LOGGER.error("§cError we extract base ID from item.", e);
             }
             return itemNbt;
         });
@@ -892,7 +858,7 @@ public class DatabaseManager {
                     return 0.0;
                 }
             } catch (SQLException e) {
-                InfinityNexusMarket.LOGGER.error("Erro ao buscar preço base", e);
+                LOGGER.error("§cError we find base prince.", e);
                 return 0.0;
             }
         });
@@ -907,7 +873,7 @@ public class DatabaseManager {
                 pstmt.setString(2, "%\"" + baseItemId + "\"%");
                 pstmt.executeUpdate();
             } catch (SQLException e) {
-                LOGGER.error("Erro ao atualizar preço no mercado", e);
+                LOGGER.error("§cError we actualize market prince.", e);
             }
         });
     }
@@ -919,7 +885,7 @@ public class DatabaseManager {
                 ResultSet rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM item_inflation WHERE purchases_last_period > 0");
                 return rs.next() ? rs.getInt(1) : 0;
             } catch (SQLException e) {
-                LOGGER.error("Erro ao contar itens atualizados", e);
+                LOGGER.error("§cError we count actualized items.", e);
                 return 0;
             }
         });
@@ -946,7 +912,7 @@ public class DatabaseManager {
             }
             lastCacheUpdate = now;
         } catch (SQLException e) {
-            LOGGER.error("Erro ao atualizar cache de preços do servidor", e);
+            LOGGER.error("§cError we actualize server princes cache.", e);
         }
     }
 
@@ -961,7 +927,7 @@ public class DatabaseManager {
                     return pstmt.executeUpdate();
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao remover itens por namespace do mod", e);
+                LOGGER.error("§cError we remove items dy mod id.", e);
                 return 0;
             }
         });
@@ -978,7 +944,7 @@ public class DatabaseManager {
                     return pstmt.executeUpdate();
                 }
             } catch (SQLException e) {
-                LOGGER.error("Erro ao remover itens por ID completo", e);
+                LOGGER.error("§cError we remove item by id.", e);
                 return 0;
             }
         });
@@ -995,7 +961,7 @@ public class DatabaseManager {
                     return count;
                 }
             } catch (SQLException e) {
-                LOGGER.error("Error clearing player balances", e);
+                LOGGER.error("§cError clearing player balances", e);
                 return 0;
             }
         });

@@ -35,10 +35,6 @@ public class MarketDataComponents {
         return new ComponentSupplier<>(registered, defaultVal);
     }
 
-    private static <T>DeferredHolder<DataComponentType<?>, DataComponentType<T>> register(String name, UnaryOperator<DataComponentType.Builder<T>> builderOperator) {
-        return DATA_COMPONENT_TYPES.register(name, () -> builderOperator.apply(DataComponentType.builder()).build());
-    }
-
     public static class ComponentSupplier<T> implements Supplier<DataComponentType<T>> {
         private final Supplier<DataComponentType<T>> type;
         private final Supplier<T> defaultSupplier;

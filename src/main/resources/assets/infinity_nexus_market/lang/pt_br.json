@@ -91,6 +91,7 @@
   "gui.infinity_nexus_market.filter.Food": "🍎",
   "gui.infinity_nexus_market.filter.Potion": "🧪",
   "gui.infinity_nexus_market.filter.Enchants": "✨",
+  "gui.infinity_nexus_market.filter.Machines": "❑",
   "message.infinity_nexus_market.sell_fail": "%s Falha ao vender: slot vazio ou quantidade insuficiente!",
   "message.infinity_nexus_market.sell_success_item": "%s Você adicionou o item %2$sx %3$s ao mercado por %4$s moedas.",
   "message.infinity_nexus_market.price_too_low": "%s O preço deve ser %s moedas para §b%s§e. Item comprado pelo servidor.",
@@ -209,5 +210,13 @@
   "command.infinity_nexus_market.events.lottery.results_header": "§f[§bMARKET LOTTERY§f] Os vencedores desta semana são:",
   "command.infinity_nexus_market.events.lottery.winner_entry": "§e%dº §b%s §f- §a%.2f§f",
   "command.infinity_nexus_market.events.lottery.announcement": "§f[§bMARKET LOTTERY§f] Loteria ativada!\n§b> §fUse /market lottery para participar!",
-  "command.infinity_nexus_market.events.lottery.announcement_jackpot": "§b> §fPremio: §e%.2f§f"
+  "command.infinity_nexus_market.events.lottery.announcement_jackpot": "§b> §fPremio: §e%.2f§f",
+  "command.infinity_nexus_market.no_ranking": "%s §cNenhum ranking disponível ainda. Aguarde o próximo ciclo de atualização.",
+  "command.infinity_nexus_market.events.lottery.closed": "%s §cA loteria não está aberta hoje!",
+  "command.infinity_nexus_market.events.lottery.add": "%s §aVocê foi adicionado ao sorteio semanal!",
+  "command.infinity_nexus_market.events.lottery.added": "%s §cVocê já está participando do sorteio!",
+  "advancement.infinity_nexus_market.market": "Uma loja de jogadores melhor!",
+  "advancement.infinity_nexus_market.vending_machine": "Vendendo tudo!",
+  "advancement.infinity_nexus_market.buying_machine": "Máquina de compra.",
+  "advancement.infinity_nexus_market.ticket": "Máquina de compra automatizada."
 }

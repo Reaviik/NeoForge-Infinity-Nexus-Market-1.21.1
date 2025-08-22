@@ -3,7 +3,6 @@ package com.Infinity.Nexus.Market.block.entity;
 import com.Infinity.Nexus.Market.block.custom.BaseMachineBlock;
 import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.itemStackHandler.RestrictedItemStackHandler;
-import com.Infinity.Nexus.Market.utils.ModEnergyStorage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -13,17 +12,14 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerData;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoAnimatable;
@@ -36,7 +32,6 @@ import software.bernie.geckolib.util.RenderUtil;
 import java.util.UUID;
 
 public abstract class AbstractMarketBlockEntity extends BlockEntity implements MenuProvider, GeoBlockEntity {
-    protected final UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
     protected String owner;
     protected String ownerName;
     protected boolean autoEnabled = false;
@@ -45,14 +40,12 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
     protected boolean autoNotify = false;
     protected final ContainerData data;
     protected final RestrictedItemStackHandler itemHandler;
-    protected final ModEnergyStorage ENERGY_STORAGE;
     protected int progress = 0;
     protected int maxProgress = ModConfigs.ticksPerOperation;
     private final float speed = maxProgress > 0 ? 10f / maxProgress : 1.0f;
 
     public AbstractMarketBlockEntity(BlockEntityType<?> type, BlockPos pPos, BlockState pBlockState, int slots) {
         super(type, pPos, pBlockState);
-        this.ENERGY_STORAGE = createEnergyStorage();
         this.itemHandler = createItemHandler(slots);
         this.data = createContainerData();
     }
@@ -89,31 +82,8 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
         };
     }
 
-    private ModEnergyStorage createEnergyStorage() {
-        return new ModEnergyStorage(getEnergyCapacity(), getEnergyTransfer()) {
-            @Override
-            public void onEnergyChanged() {
-                setChanged();
-                if (level != null) {
-                    level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 4);
-                }
-            }
-        };
-    }
-
-    protected abstract int getEnergyCapacity();
-    protected abstract int getEnergyTransfer();
-
     public IItemHandler getItemHandler(Direction direction) {
         return itemHandler;
-    }
-
-    public IEnergyStorage getEnergyStorage(@Nullable Direction direction) {
-        return ENERGY_STORAGE;
-    }
-
-    public IEnergyStorage getEnergyStorage() {
-        return ENERGY_STORAGE;
     }
 
     public void drops() {
@@ -128,7 +98,6 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
     protected void saveAdditional(CompoundTag pTag, HolderLookup.Provider registries) {
         super.saveAdditional(pTag, registries);
         pTag.put("inventory", itemHandler.serializeNBT(registries));
-        pTag.putInt("energy", ENERGY_STORAGE.getEnergyStored());
         pTag.putString("owner", owner == null ? "" : owner);
         pTag.putString("ownerName", ownerName == null ? "" : ownerName);
         pTag.putBoolean("autoEnabled", autoEnabled);
@@ -143,7 +112,6 @@ public abstract class AbstractMarketBlockEntity extends BlockEntity implements M
     protected void loadAdditional(CompoundTag pTag, HolderLookup.Provider registries) {
         super.loadAdditional(pTag, registries);
         itemHandler.deserializeNBT(registries, pTag.getCompound("inventory"));
-        ENERGY_STORAGE.setEnergy(pTag.getInt("energy"));
         if (pTag.getString("owner").equals("")) {
             owner = null;
         } else {

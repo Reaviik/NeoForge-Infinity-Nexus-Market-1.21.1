@@ -22,12 +22,14 @@ public class ModBlockTagGenerator extends BlockTagsProvider {
 
         this.tag(BlockTags.MINEABLE_WITH_PICKAXE)
             .add(ModBlocksMarket.VENDING_MACHINE.get())
-            .add(ModBlocksMarket.BUYING_MACHINE.get());
+            .add(ModBlocksMarket.BUYING_MACHINE.get())
+            .add(ModBlocksMarket.MARKET_MACHINE.get());
 
 
         this.tag(BlockTags.NEEDS_STONE_TOOL)
             .add(ModBlocksMarket.VENDING_MACHINE.get())
-            .add(ModBlocksMarket.BUYING_MACHINE.get());
+            .add(ModBlocksMarket.BUYING_MACHINE.get())
+            .add(ModBlocksMarket.MARKET_MACHINE.get());
 
 
     }

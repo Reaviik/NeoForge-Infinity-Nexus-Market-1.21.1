@@ -19,7 +19,5 @@ public class JEIModPlugin implements IModPlugin {
 
     @Override
     public void registerRecipes(IRecipeRegistration registration) {
-        registration.addItemStackInfo(new ItemStack(ModBlocksMarket.VENDING_MACHINE.get()), Component.translatable("infinity_nexus_market.vending_jei_information"));
-        registration.addItemStackInfo(new ItemStack(ModBlocksMarket.BUYING_MACHINE.get()), Component.translatable("infinity_nexus_market.buying_jei_information"));
     }
 }

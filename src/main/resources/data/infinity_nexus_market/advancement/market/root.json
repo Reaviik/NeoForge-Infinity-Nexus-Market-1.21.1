@@ -1,10 +1,10 @@
 {
   "criteria": {
-    "utils": {
+    "market": {
       "conditions": {
         "items": [
           {
-            "items": "infinity_nexus_market:vending_machine"
+            "items": "infinity_nexus_market:market_machine"
           }
         ]
       },
@@ -13,22 +13,22 @@
   },
   "display": {
     "announce_to_chat": true,
-    "background": "minecraft:textures/block/stone.png",
+    "background": "minecraft:textures/block/gold_block.png",
     "description": {
-      "translate": "advancement.infinity_nexus_market.start"
+      "translate": "item.infinity_nexus_market.market_machine_description"
     },
     "icon": {
       "count": 1,
-      "id": "infinity_nexus_market:market"
+      "id": "infinity_nexus_market:market_machine"
     },
-    "show_toast": false,
+    "show_toast": true,
     "title": {
       "translate": "itemGroup.infinity_nexus_market"
     }
   },
   "requirements": [
     [
-      "utils"
+      "market"
     ]
   ],
   "sends_telemetry_event": true

@@ -5,7 +5,6 @@ import com.Infinity.Nexus.Market.networking.ModMessages;
 import com.Infinity.Nexus.Market.networking.packet.SendAutoSettingsC2SPacket;
 import com.Infinity.Nexus.Market.renderer.EnergyInfoArea;
 import com.Infinity.Nexus.Market.renderer.InfoArea;
-import com.Infinity.Nexus.Market.utils.HasEnergyStorage;
 import com.Infinity.Nexus.Market.utils.MouseUtil;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
@@ -25,7 +24,6 @@ import java.util.Optional;
 public abstract class AbstractTradeScreen<T extends AbstractContainerMenu> extends AbstractContainerScreen<T> {
     protected static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(InfinityNexusMarket.MOD_ID, "textures/gui/trade_gui.png");
 
-    protected EnergyInfoArea energyInfoArea;
     protected int slotManualX, slotManualY, slotAutoX, slotAutoY, slotSize, spacing;
     protected EditBox priceBox;
     protected Button decrementButton;
@@ -51,7 +49,6 @@ public abstract class AbstractTradeScreen<T extends AbstractContainerMenu> exten
         super.init();
         this.inventoryLabelY = 10000;
         this.titleLabelY = 10000;
-        assignEnergyInfoArea();
 
         // Layout base
         slotSize = 18;
@@ -202,13 +199,6 @@ public abstract class AbstractTradeScreen<T extends AbstractContainerMenu> exten
         super.onClose();
     }
 
-    protected void assignEnergyInfoArea() {
-        int x = (width - imageWidth) / 2;
-        int y = (height - imageHeight) / 2;
-        if (menu instanceof HasEnergyStorage energyMenu) {
-            energyInfoArea = new EnergyInfoArea(x + 159, y + 6, energyMenu.getEnergyStorage());
-        }
-    }
 
     @Override
     protected void renderLabels(GuiGraphics pGuiGraphics, int pMouseX, int pMouseY) {
@@ -217,15 +207,8 @@ public abstract class AbstractTradeScreen<T extends AbstractContainerMenu> exten
         pGuiGraphics.drawString(this.font, this.playerInventoryTitle, 8, 74, 0XFFFFFF);
         pGuiGraphics.drawString(this.font, this.title, 8, -9, 0XFFFFFF);
 
-        renderEnergyAreaTooltips(pGuiGraphics, pMouseX, pMouseY, x, y);
         InfoArea.draw(pGuiGraphics);
         super.renderLabels(pGuiGraphics, pMouseX, pMouseY);
-    }
-
-    private void renderEnergyAreaTooltips(GuiGraphics pGuiGraphics, int pMouseX, int pMouseY, int x, int y) {
-        if (isMouseAboveArea(pMouseX, pMouseY, x, y, 159, 6, 6, 62)) {
-            pGuiGraphics.renderTooltip(this.font, energyInfoArea.getTooltips(), Optional.empty(), pMouseX - x, pMouseY - y);
-        }
     }
 
     @Override
@@ -237,7 +220,6 @@ public abstract class AbstractTradeScreen<T extends AbstractContainerMenu> exten
         int y = (height - imageHeight) / 2;
         guiGraphics.blit(TEXTURE, x + 2, y - 14, 2, 167, 174, 64);
         guiGraphics.blit(TEXTURE, x, y, 0, 0, imageWidth, imageHeight);
-        energyInfoArea.render(guiGraphics);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.Infinity.Nexus.Market.utils;
 
 import com.Infinity.Nexus.Market.InfinityNexusMarket;
+import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.events.ModEvents;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -35,7 +36,7 @@ public class LotteryManager {
                 }
             }
         } catch (IOException e) {
-            InfinityNexusMarket.LOGGER.error("Failed to load lottery participants", e);
+            InfinityNexusMarket.LOGGER.error("§cFailed to load lottery participants", e);
         }
     }
 
@@ -45,21 +46,21 @@ public class LotteryManager {
             String json = gson.toJson(participants);
             Files.write(LOTTERY_FILE, json.getBytes());
         } catch (IOException e) {
-            InfinityNexusMarket.LOGGER.error("Failed to save lottery participants", e);
+            InfinityNexusMarket.LOGGER.error("§cFailed to save lottery participants", e);
         }
     }
 
     public static void addParticipant(ServerPlayer player) {
         if(!ModEvents.isDay){
-            player.sendSystemMessage(Component.literal("§cA loteria não esta aberta hoje!"));
+            player.sendSystemMessage(Component.translatable("command.infinity_nexus_market.events.lottery.closed", ModConfigs.prefix));
             return;
         }
         if (!participants.contains(player.getName().getString())) {
             participants.add(player.getName().getString());
             saveParticipants();
-            player.sendSystemMessage(Component.literal("§aVocê foi adicionado ao sorteio semanal!"));
+            player.sendSystemMessage(Component.translatable("command.infinity_nexus_market.events.lottery.add", ModConfigs.prefix));
         } else {
-            player.sendSystemMessage(Component.literal("§cVocê já está participando do sorteio!"));
+            player.sendSystemMessage(Component.translatable("command.infinity_nexus_market.events.lottery.added", ModConfigs.prefix));
         }
     }
 
@@ -72,7 +73,7 @@ public class LotteryManager {
         try {
             Files.deleteIfExists(LOTTERY_FILE);
         } catch (IOException e) {
-            InfinityNexusMarket.LOGGER.error("Failed to clear lottery participants", e);
+            InfinityNexusMarket.LOGGER.error("§cFailed to clear lottery participants", e);
         }
     }
 }

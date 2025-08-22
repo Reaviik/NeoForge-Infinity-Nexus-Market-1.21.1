@@ -1,5 +1,6 @@
 package com.Infinity.Nexus.Market.block.entity;
 
+import com.Infinity.Nexus.Market.InfinityNexusMarket;
 import com.Infinity.Nexus.Market.block.custom.BaseMachineBlock;
 import com.Infinity.Nexus.Market.config.ModConfigs;
 import com.Infinity.Nexus.Market.itemStackHandler.RestrictedItemStackHandler;
@@ -37,7 +38,6 @@ import java.util.Map;
 import java.util.UUID;
 
 public class VendingBlockEntity extends AbstractMarketBlockEntity {
-    private static final UUID SERVER_UUID = UUID.fromString("00000000-0000-0000-0000-00000000c0de");
     private static final Map<String, TagKey<Item>> TAG_CACHE = new HashMap<>();
     private static final Map<String, Item> ITEM_CACHE = new HashMap<>();
     private static final int MANUAL_SLOT = 0;
@@ -86,17 +86,6 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
         };
     }
 
-
-    @Override
-    protected int getEnergyCapacity() {
-        return ModConfigs.vendingEnergyCapacity;
-    }
-
-    @Override
-    protected int getEnergyTransfer() {
-        return ModConfigs.vendingEnergyTransfer;
-    }
-
     @Override
     public Component getDisplayName() {
         return Component.translatable("block.infinity_nexus_market.vending_machine");
@@ -126,10 +115,8 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
         progress = 0;
 
         if (pLevel.isClientSide) return;
-        //if (getEnergyStored() < ModConfigs.vendingEnergyPerOperation) return;
 
         if (autoEnabled && autoMinAmount > 0 && autoPrice > 0) {
-            //extractEnergy(ModConfigs.vendingEnergyPerOperation, false);
             progress = 0;
             autoPostSaleOnMarket();
             RENDER_STACK = ItemStack.EMPTY;
@@ -182,7 +169,7 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
 
         ItemStack item = itemHandler.getStackInSlot(slot);
         UUID sellerUUID = UUID.fromString(owner);
-        boolean isServerItem = owner.equals(SERVER_UUID.toString());
+        boolean isServerItem = owner.equals(InfinityNexusMarket.SERVER_UUID.toString());
 
         if (!validateSale(player, item, sellerUUID, isServerItem)) {
             return false;
@@ -314,7 +301,7 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
     }
     private boolean validateMinimumPrice(String itemNbt, double price) {
         // Não aplicar para itens do servidor
-        if (owner.equals(SERVER_UUID.toString())) {
+        if (owner.equals(InfinityNexusMarket.SERVER_UUID.toString())) {
             return true;
         }
 
@@ -336,7 +323,7 @@ public class VendingBlockEntity extends AbstractMarketBlockEntity {
     @Override
     public void setOwner(Player player) {
         if(player.isCreative()){
-            owner = SERVER_UUID.toString();
+            owner = InfinityNexusMarket.SERVER_UUID.toString();
             ownerName = "Server";
             return;
         }

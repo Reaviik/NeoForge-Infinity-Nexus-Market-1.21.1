@@ -1,11 +1,11 @@
 {
   "parent": "infinity_nexus_market:market/root",
   "criteria": {
-    "has_ranger": {
+    "has_ticket": {
       "conditions": {
         "items": [
           {
-            "items": "infinity_nexus_market:vending_machine_range_upgrade"
+            "items": "infinity_nexus_market:ticket"
           }
         ]
       },
@@ -14,19 +14,19 @@
   },
   "display": {
   "description": {
-    "translate": "advancement.infinity_nexus_market.range_description"
+    "translate": "tooltip.infinity_nexus_market.ticket_empty_description"
   },
   "icon": {
     "count": 1,
-    "id": "infinity_nexus_market:planter_upgrade"
+    "id": "infinity_nexus_market:ticket"
   },
   "title": {
-    "translate": "advancement.infinity_nexus_market.range"
+    "translate": "advancement.infinity_nexus_market.ticket"
   }
 },
   "requirements": [
     [
-      "has_ranger"
+      "has_ticket"
     ]
   ],
   "sends_telemetry_event": true
